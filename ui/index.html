@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DMTA platform</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1>Design · Make · Test</h1>
+    <p>Closed-loop medicinal chemistry over a make-on-demand library. RDKit chemistry,
+       calibrated uncertainty, batch selection under lab constraints.</p>
+  </div>
+  <div class="campaign-bar">
+    <select id="campaign" aria-label="Campaign"></select>
+    <a class="btn ghost" href="./viewer.html">3D viewer</a>
+    <button id="newCampaign" class="ghost">New campaign</button>
+  </div>
+</header>
+
+<main>
+  <section class="controls" id="controls">
+    <div class="ctl">
+      <label for="batch">Batch size</label>
+      <input type="number" id="batch" value="16" min="4" max="64">
+    </div>
+    <div class="ctl">
+      <label for="acq">Acquisition</label>
+      <select id="acq">
+        <option value="ucb">UCB (optimistic potency)</option>
+        <option value="greedy">Greedy (exploit)</option>
+        <option value="expected_improvement">Expected improvement</option>
+        <option value="thompson">Thompson sampling</option>
+        <option value="uncertainty">Uncertainty (explore)</option>
+        <option value="random">Random (baseline)</option>
+      </select>
+    </div>
+    <div class="ctl"><label for="beta">Optimism β <b id="betaV">0.25</b></label>
+      <input type="range" id="beta" min="0" max="2" step="0.05" value="0.25"></div>
+    <div class="ctl"><label for="div">Diversity <b id="divV">0.15</b></label>
+      <input type="range" id="div" min="0" max="0.6" step="0.01" value="0.15"></div>
+    <div class="spacer"></div>
+    <button id="propose" class="ghost">Propose batch</button>
+    <button id="run">Run cycle</button>
+    <button id="run3" class="ghost">Run 3</button>
+    <a id="worklist" class="ghost btn" download>Worklist CSV</a>
+    <a id="export" class="ghost btn" download>Results CSV</a>
+  </section>
+
+  <section class="stages">
+    <article class="card">
+      <h2><i class="dot d-design"></i>Design</h2>
+      <div class="big" id="dBig">—<small>top multi-parameter score</small></div>
+      <div id="dObj" class="objlist"></div>
+    </article>
+    <article class="card">
+      <h2><i class="dot d-make"></i>Make</h2>
+      <div class="big" id="mBig">—<small>reactions for the batch</small></div>
+      <div id="mBody"></div>
+    </article>
+    <article class="card">
+      <h2><i class="dot d-test"></i>Test</h2>
+      <div class="big" id="tBig">—<small>best measured</small></div>
+      <div id="tBody"></div>
+    </article>
+  </section>
+
+  <section class="charts">
+    <article class="card">
+      <div class="chart-title">Best compound found vs. compounds made</div>
+      <svg id="progress" viewBox="0 0 520 230"></svg>
+    </article>
+    <article class="card">
+      <div class="chart-title">Prospective accuracy per cycle — predicted before the assay ran</div>
+      <svg id="accuracy" viewBox="0 0 520 230"></svg>
+    </article>
+  </section>
+
+  <section class="card">
+    <div class="tabs" id="tabs">
+      <button data-tab="batch" aria-selected="true">Proposed batch</button>
+      <button data-tab="routes" aria-selected="false">Synthesis plan</button>
+      <button data-tab="tested" aria-selected="false">Tested</button>
+      <button data-tab="chemistry" aria-selected="false">Chemistry</button>
+    </div>
+    <div class="scroll" id="tableWrap"><p class="muted">Loading…</p></div>
+    <p class="note" id="note"></p>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <form method="dialog">
+    <h3>New campaign</h3>
+    <label>Name <input name="name" required placeholder="kinase-X-leadopt"></label>
+    <label>Data source <select name="target" id="targetSelect"></select></label>
+    <p class="muted" id="targetNote" style="margin:-4px 0 12px">—</p>
+    <label>Batch size <input name="batch_size" type="number" value="16" min="4" max="64"></label>
+    <label>Landscape seed <input name="oracle_seed" type="number" value="42"></label>
+    <label>Assay noise <input name="assay_noise" type="number" step="0.05" value="0.2"></label>
+    <menu><button value="cancel" class="ghost">Cancel</button><button id="createBtn" value="ok">Create</button></menu>
+  </form>
+</dialog>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

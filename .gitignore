@@ -1,0 +1,23 @@
+# Derived data — all of it regenerates from the CLI, and keeping it out avoids
+# redistributing ChEMBL and RCSB content under their own licence terms.
+#   python3 -m dmta.cli chembl-fetch --target CHEMBL203
+#   python3 -m dmta.cli structure --pdb 2RGP
+data/
+campaigns.db
+worklist-*.csv
+*-results.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+.venv/
+venv/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+.claude/

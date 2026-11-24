@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design–Make–Test loop</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #151b23; --panel2: #1b222c; --line: #2a333f;
+    --ink: #e6edf3; --dim: #8b98a5; --faint: #6b7684;
+    --design: #7aa2f7; --make: #e0af68; --test: #9ece6a; --hot: #f7768e;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  header { padding: 28px 32px 18px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; letter-spacing: -0.2px; }
+  header p { margin: 0; color: var(--dim); max-width: 70ch; }
+  main { padding: 20px 32px 60px; max-width: 1400px; }
+
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 18px; margin-bottom: 22px;
+  }
+  .ctl { display: flex; flex-direction: column; gap: 4px; }
+  .ctl label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
+  .ctl input[type=range] { width: 130px; accent-color: var(--design); }
+  .ctl input[type=number] { width: 72px; }
+  input[type=number] {
+    background: var(--panel2); border: 1px solid var(--line); color: var(--ink);
+    border-radius: 6px; padding: 5px 8px; font: inherit;
+  }
+  .val { font: 12px var(--mono); color: var(--ink); }
+  .spacer { flex: 1; }
+  button {
+    background: var(--design); color: #0b1020; border: 0; border-radius: 7px;
+    padding: 9px 16px; font: 600 13px inherit; cursor: pointer;
+  }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button:disabled { opacity: .45; cursor: default; }
+
+  .stages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .card h2 {
+    margin: 0 0 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+    display: flex; align-items: center; gap: 7px; color: var(--dim);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .d-design { background: var(--design); } .d-make { background: var(--make); } .d-test { background: var(--test); }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px dashed #222b36; }
+  .kv:last-child { border: 0; }
+  .kv span:first-child { color: var(--dim); }
+  .kv span:last-child { font: 12px var(--mono); }
+  .big { font: 600 26px/1.1 var(--mono); margin: 2px 0 10px; }
+  .big small { font: 400 12px/1 inherit; color: var(--faint); display: block; margin-top: 4px; letter-spacing: 0; }
+
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 22px; }
+  .chart-title { font-size: 12px; color: var(--dim); margin-bottom: 8px; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .ax { stroke: var(--line); stroke-width: 1; }
+  .axlbl { fill: var(--faint); font: 10px var(--mono); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #1e2631; white-space: nowrap; }
+  th { font: 600 11px inherit; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
+  td.n { font: 12px var(--mono); text-align: right; }
+  tr.hit td { color: var(--test); }
+  .smiles { font: 11px var(--mono); color: var(--dim); max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+  .pill {
+    display: inline-block; font: 11px var(--mono); padding: 1px 7px; border-radius: 10px;
+    background: #1f2733; color: var(--dim);
+  }
+  .bar { display: inline-block; vertical-align: middle; height: 6px; border-radius: 3px; background: #222b36; position: relative; width: 90px; }
+  .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--design); }
+  .tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+  .tabs button { background: transparent; color: var(--dim); border: 1px solid transparent; font-weight: 500; padding: 6px 12px; }
+  .tabs button[aria-selected=true] { background: var(--panel2); color: var(--ink); border-color: var(--line); }
+  .scroll { max-height: 420px; overflow: auto; }
+  .route { font: 11px var(--mono); color: var(--dim); }
+  .note { color: var(--faint); font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Design–Make–Test loop</h1>
+  <p>A working model of the closed-loop medicinal-chemistry cycle: enumerate a library that is
+     synthesisable by construction, score it against competing drug-like properties, plan routes that
+     share intermediates, then let an uncertainty-aware model choose each next batch. The assay is a
+     simulated ground truth, so you can see how close the loop gets to the best compound in the library.</p>
+</header>
+
+<main>
+  <div class="controls">
+    <div class="ctl">
+      <label for="batch">Batch size</label>
+      <input type="number" id="batch" value="14" min="4" max="48" step="1">
+    </div>
+    <div class="ctl">
+      <label for="beta">Exploration β <span class="val" id="betaV">1.0</span></label>
+      <input type="range" id="beta" min="0" max="3" step="0.1" value="1">
+    </div>
+    <div class="ctl">
+      <label for="div">Diversity pressure <span class="val" id="divV">0.6</span></label>
+      <input type="range" id="div" min="0" max="2" step="0.1" value="0.6">
+    </div>
+    <div class="ctl">
+      <label for="noise">Assay noise (log) <span class="val" id="noiseV">0.25</span></label>
+      <input type="range" id="noise" min="0" max="1" step="0.05" value="0.25">
+    </div>
+    <div class="ctl">
+      <label for="seed">Target seed</label>
+      <input type="number" id="seed" value="42" min="1" max="999">
+    </div>
+    <div class="spacer"></div>
+    <button id="run">Run one cycle</button>
+    <button id="run5" class="ghost">Run 5 cycles</button>
+    <button id="reset" class="ghost">Reset</button>
+  </div>
+
+  <div class="stages">
+    <div class="card">
+      <h2><i class="dot d-design"></i>Design</h2>
+      <div class="big" id="dBig">—<small>top multi-parameter score</small></div>
+      <div id="dObj"></div>
+    </div>
+    <div class="card">
+      <h2><i class="dot d-make"></i>Make</h2>
+      <div class="big" id="mBig">—<small>synthetic steps this batch</small></div>
+      <div id="mBody"></div>
+    </div>
+    <div class="card">
+      <h2><i class="dot d-test"></i>Test</h2>
+      <div class="big" id="tBig">—<small>best pIC50 measured</small></div>
+      <div id="tBody"></div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="card">
+      <div class="chart-title">Best compound found vs. compounds made &mdash; loop against random screening</div>
+      <svg id="progress" viewBox="0 0 520 240"></svg>
+    </div>
+    <div class="card">
+      <div class="chart-title">Prospective accuracy: what the model predicted vs. what the assay measured</div>
+      <svg id="parity" viewBox="0 0 520 240"></svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tabs" id="tabs">
+      <button data-tab="batch" aria-selected="true">Current batch</button>
+      <button data-tab="tested" aria-selected="false">All tested</button>
+      <button data-tab="next" aria-selected="false">Next design ranking</button>
+      <button data-tab="routes" aria-selected="false">Synthesis plan</button>
+    </div>
+    <div class="scroll" id="tableWrap"></div>
+    <div class="note" id="note"></div>
+  </div>
+</main>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Structure viewer — DMTA platform</title>
+<link rel="stylesheet" href="./style.css">
+<style>
+  .viewer-layout { display: grid; grid-template-columns: 300px 1fr 280px; gap: 16px; align-items: start; }
+  #gl { position: relative; width: 100%; height: 620px; border-radius: 10px;
+        background: #090d13; border: 1px solid var(--line); overflow: hidden; }
+  #gl canvas { border-radius: 10px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--dim); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  .toolbar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .toolbar button { padding: 6px 11px; font-size: 12px; }
+  .toolbar button[aria-pressed=true] { background: var(--design); color: #0b1020; border-color: transparent; }
+  .pick { max-height: 520px; overflow: auto; }
+  .pick table { font-size: 12px; }
+  .pick tr { cursor: pointer; }
+  .pick tr:hover td { background: var(--panel2); }
+  .pick tr[aria-selected=true] td { background: #1e2a3d; color: var(--ink); }
+  .readout div { padding: 5px 0; border-bottom: 1px dashed #222b36; display: flex; justify-content: space-between; gap: 10px; }
+  .readout div:last-child { border: 0; }
+  .readout span:last-child { font: 12px var(--mono); }
+  .hint { color: var(--faint); font-size: 12px; line-height: 1.5; }
+  .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--dim); font-size: 13px; }
+  @media (max-width: 1250px) { .viewer-layout { grid-template-columns: 1fr; } #gl { height: 440px; } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Structure viewer</h1>
+    <p>The protein, its binding pocket, and the 3D pose of a docked molecule —
+       the same coordinates the docking score was computed from, not an illustration.</p>
+  </div>
+  <div class="campaign-bar">
+    <select id="pdb" aria-label="Structure">
+      <option value="2RGP">2RGP — EGFR, active-like (2.0 Å)</option>
+      <option value="4HJO">4HJO — EGFR, inactive + erlotinib (2.75 Å)</option>
+    </select>
+    <a class="btn ghost" href="./index.html">← Back to the loop</a>
+  </div>
+</header>
+
+<main>
+  <div class="viewer-layout">
+    <section class="card">
+      <h2><i class="dot d-design"></i>Structure</h2>
+      <div class="readout" id="meta"><p class="muted">Loading…</p></div>
+      <p class="hint" style="margin-top:14px">
+        The box is drawn where the crystal ligand actually sits, so the search
+        region comes from the experiment rather than from a guess.
+      </p>
+    </section>
+
+    <section>
+      <div class="toolbar" id="toolbar">
+        <button data-toggle="cartoon" aria-pressed="true">Protein</button>
+        <button data-toggle="pocket" aria-pressed="true">Pocket surface</button>
+        <button data-toggle="crystal" aria-pressed="true">Crystal ligand</button>
+        <button data-toggle="pose" aria-pressed="true">Docked pose</button>
+        <button data-toggle="box" aria-pressed="false">Search box</button>
+        <button data-toggle="spin" aria-pressed="false">Spin</button>
+        <button id="reset" class="ghost">Reset view</button>
+      </div>
+      <div id="gl"><div class="loading" id="glLoading">Loading structure…</div></div>
+      <div class="legend">
+        <span><i style="background:#8b98a5"></i>protein</span>
+        <span><i style="background:#e0af68"></i>crystal ligand (HYZ)</span>
+        <span><i style="background:#9ece6a"></i>docked pose</span>
+        <span><i style="background:#7aa2f7"></i>pocket surface</span>
+        <span style="color:var(--faint)">drag to rotate · scroll to zoom · right-drag to pan</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><i class="dot d-test"></i>Docked compounds</h2>
+      <div class="pick" id="pick"><p class="muted">Loading…</p></div>
+      <div class="readout" id="selected" style="margin-top:12px"></div>
+    </section>
+  </div>
+</main>
+
+<script src="./vendor/3Dmol-min.js"></script>
+<script src="./viewer.js"></script>
+</body>
+</html>

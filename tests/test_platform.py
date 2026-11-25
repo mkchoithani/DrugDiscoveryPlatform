@@ -1083,3 +1083,39 @@ def test_the_paired_test_refuses_to_call_a_tie_a_rejection():
     assert "cost decision" in out.stdout
     # and it must not claim the gap is zero
     assert "still inside the interval" in out.stdout
+
+
+def test_a_plateau_is_not_read_as_a_trend():
+    """The fourth verdict-function error, pinned with the real curve.
+
+    chemprop_scale.py first fitted ONE log-linear slope through every training size.
+    On the measured EGFR curve that gives +0.125 of rho per decade, which extrapolates
+    to a crossover at n = 7,111 — while the measured difference at n = 7,173 was
+    -0.033, nowhere near zero. The slope was carried entirely by the n = 250 point.
+
+    Same class of error as comparing a saturated enrichment factor: a summary
+    statistic used where it is not valid.
+    """
+    from chemprop_scale import read_trend
+    ns = [250, 500, 1000, 2000, 4000, 7173]
+    real = [-0.233, -0.114, -0.082, -0.026, -0.042, -0.033]
+    out = "\n".join(read_trend(ns, real))
+    assert "TWO REGIMES" in out and "PLATEAUED" in out, out
+    assert "must NOT be extrapolated" in out
+    assert "-0.034" in out                      # the level, not the slope
+    assert "CROSSED" not in out
+    assert "STILL CLOSING" not in out           # the wrong verdict it used to print
+
+    # a genuinely closing curve must still be called closing
+    closing = [-0.233, -0.180, -0.130, -0.090, -0.050, -0.012]
+    out = "\n".join(read_trend(ns, closing))
+    assert "STILL CLOSING" in out, out
+
+    # and one that crosses must be called crossed, whatever the slopes do
+    crossed = [-0.233, -0.114, -0.040, +0.010, +0.030, +0.044]
+    assert "HAS CROSSED" in "\n".join(read_trend(ns, crossed))
+
+    # a flat curve from the start is a different finding from a plateau
+    flat = [-0.030, -0.034, -0.029, -0.033, -0.031, -0.034]
+    out = "\n".join(read_trend(ns, flat))
+    assert "FLAT" in out and "never the explanation" in out, out

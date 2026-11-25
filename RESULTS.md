@@ -1413,13 +1413,13 @@ own code.
 | docking (smina) | 3 structures + ensemble + DUD-E + LIT-PCBA | **A** | rejected ×4. Sections 4–6 and 15. Agrees with the LIT-PCBA authors' own finding, and sections 4–6 re-confirmed a negative the docking literature had already established |
 | RMT correlation cleaning | 2 modes, 24 programmes | **A/C** | rejected — −0.173 median ρ, a large effect. But we used it as a *predictor*, and the paper is about cleaning a covariance matrix. Its actual claim is untested here (section 8) |
 | predicted pharmacophore maps | potency, DUD-E, LIT-PCBA | **C** | rejected ×3 — PostEra release the field generator, not the scorer. The scorer is ours, so three agreeing benchmarks reject *our* screening half (section 10) |
-| Chemprop (D-MPNN) | 18 programmes, 175–884 compounds each | **B** | **not a rejection** — median gap −0.026 against a between-programme spread of 0.135. Section 16 tests this properly. Run outside the data regime its authors validated |
+| Chemprop (D-MPNN) | 24 programmes + a 250→7,173 learning curve | **B** | **not a rejection** — paired CI [−0.097, +0.024] contains zero. The gap plateaus at −0.034 from n≈2,000 upward, so the forest is level with it at every size this data reaches, at 96× less compute (section 16) |
 | de novo generation (BRICS) | smoke test | — | incomplete, parked |
 
 **Seven capabilities examined. Two kept. One real rejection with independent support, two
 rejections that are partly about what we built rather than what was published, one tie we
-had been calling a rejection. Three of our own published claims corrected — four, counting
-that label.**
+had been calling a rejection. Four of our own published claims corrected, and four
+verdict-function errors found and pinned with tests.**
 
 The thing that keeps earning its place is not a model. It is the habit of converting every
 ratio back into a count of molecules, and every gap into a confidence interval, before
@@ -1501,3 +1501,67 @@ prints it alongside the other two for that reason, and a test pins its values.
 error was in a *label* rather than in a number. The number in section 7 was right all
 along; the summary of it was not. A tally is where overclaiming hides, because it is the
 part people read.
+
+## The learning curve: Chemprop in the regime its paper validated
+
+Section 7 ran Chemprop on programmes of 175–884 compounds. That is the small-data regime,
+where fingerprints plus a forest are documented to be competitive, and it is *not* the
+regime the D-MPNN papers validate. So the test we owed the paper: one target's entire
+cleaned set, one **fixed** scaffold test set, training set subsampled upward.
+
+```bash
+python3 chemprop_scale.py CHEMBL203 IC50 250,500,1000,2000,4000,0
+```
+
+EGFR, 8,978 compounds → 7,173 train / 1,805 test. 17 minutes.
+
+| n train | forest ρ | chemprop ρ | paired Δ | forest MAE | cp MAE | forest s | cp s |
+|---|---|---|---|---|---|---|---|
+| 250 | 0.701 | 0.468 | **−0.233** | 0.861 | 1.019 | 0.9 | 14.5 |
+| 500 | 0.751 | 0.637 | −0.114 | 0.726 | 0.871 | 0.6 | 26.8 |
+| 1,000 | 0.768 | 0.686 | −0.082 | 0.712 | 0.810 | 0.9 | 52.5 |
+| 2,000 | 0.776 | 0.750 | −0.026 | 0.700 | 0.723 | 1.3 | 103.7 |
+| 4,000 | 0.796 | 0.754 | −0.042 | 0.668 | 0.695 | 2.3 | 207.5 |
+| **7,173** | **0.810** | 0.777 | **−0.033** | 0.646 | 0.662 | **3.8** | 365.7 |
+
+**Two regimes.** The gap collapses from −0.233 to −0.026 as data goes from 250 to 2,000,
+and then stops: over the last three sizes the slope is **−0.014 per decade** and the level
+is **−0.034 ± 0.008**. Chemprop is not catching up any more; both models improve together.
+
+So the data-size hypothesis is **half right, and the half that matters is wrong**. Size
+explains the large gap at small n. It does not explain the residual, and the residual
+(−0.034) is inside the tie interval from the paired test — so at every size this target can
+reach, the two models are level and the forest costs 96× less (3.8 s against 365.7 s).
+
+> **There is no n in reach where switching pays.** That is a stronger conclusion than
+> section 7's, and it is the first time measuring a rejection properly has made the
+> original decision *more* defensible rather than less.
+
+## My verdict function got this wrong too — the fourth time, and the same cause
+
+The script first fitted **one log-linear slope** through all six points:
+
+```
+  trend: +0.125 of rho per 10x more training data
+  -> The gap is closing as data grows (+0.125 per decade) but has
+     not crossed by n=7173. Size is part of the explanation.
+     Re-test if a programme ever reaches several times this much data.
+```
+
+That slope extrapolates to a crossover at **n = 7,111**. The measured difference at
+n = 7,173 is **−0.033** — nowhere near zero. The slope is carried almost entirely by the
+n = 250 point, and the verdict it produced would have sent us looking for a crossover that
+the last three points rule out.
+
+**Same class of error as the saturated enrichment factor in section 14:** a summary
+statistic used where it is not valid. Fit a straight line through a curve with a knee in
+it and the line describes the knee, not where you are standing.
+
+`read_trend()` now fits the recent regime separately, refuses to extrapolate a whole-curve
+slope that disagrees with it, and distinguishes *plateaued* from *flat from the start* from
+*still closing* from *crossed*. A test pins all four against this real curve.
+
+**Four verdict-function errors now, in four sections.** Two flattered a method I had reason
+to favour, one was conservative, and this one invented a future crossover. The only thing
+that has ever caught them is refusing to read a summary number without asking what it is a
+summary *of* — molecules, in sections 13–15; a two-regime curve, here.

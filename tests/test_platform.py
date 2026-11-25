@@ -696,3 +696,102 @@ def test_noisy_replay_assay_keeps_truth_clean():
     assert all(assay.truth(c.id) == c.truth for c in lib), "truth was perturbed"
     assert any(abs(readings[c.id] - c.truth) > 1e-6 for c in lib), "no noise was added"
     assert len(assay.top_fraction(0.25)) == 5
+
+
+# --- predicted pharmacophore maps (Digital Discovery 2026) --------------------
+
+def _synthetic_field(tmp_path, shape=(6, 6, 6), spacing=2.0, hot=None):
+    """A field we control, so the reduction can be checked against known answers."""
+    import numpy as np
+    from dmta.pharmacophore import FEATURE_CHANNELS
+    n = shape[0] * shape[1] * shape[2]
+    probs = np.full((n, len(FEATURE_CHANNELS)), 0.01, dtype=np.float32)
+    for flat_index, channel, value in (hot or []):
+        probs[flat_index, channel] = value
+    path = tmp_path / "phc4_field.npz"
+    np.savez(path, probs=probs, origin=np.zeros(3), shape=np.array(shape),
+             spacing=np.array([spacing]), features=np.array(list(FEATURE_CHANNELS)))
+    return path
+
+
+def test_field_keeps_only_confident_points(tmp_path):
+    from dmta.pharmacophore import load_field
+    path = _synthetic_field(tmp_path, hot=[(0, 0, 0.95), (10, 0, 0.3)])
+    field = load_field(path, threshold=0.9)
+    assert len(field.spots) == 1
+    assert field.spots[0].feature == "Donor"
+    assert field.spots[0].probability > 0.9
+
+
+def test_field_suppresses_neighbouring_maxima(tmp_path):
+    """Two confident points 2 A apart are one pharmacophore feature, not two."""
+    from dmta.pharmacophore import load_field
+    path = _synthetic_field(tmp_path, spacing=2.0, hot=[(0, 0, 0.98), (1, 0, 0.97)])
+    assert len(load_field(path, threshold=0.9, min_separation=3.0).spots) == 1
+    assert len(load_field(path, threshold=0.9, min_separation=1.0).spots) == 2
+
+
+def test_field_rejects_an_inconsistent_file(tmp_path):
+    import numpy as np
+    import pytest
+    from dmta.pharmacophore import FEATURE_CHANNELS, load_field
+    path = tmp_path / "bad.npz"
+    np.savez(path, probs=np.zeros((10, len(FEATURE_CHANNELS)), dtype=np.float32),
+             origin=np.zeros(3), shape=np.array([6, 6, 6]), spacing=np.array([1.0]),
+             features=np.array(list(FEATURE_CHANNELS)))
+    with pytest.raises(ValueError, match="rows but shape"):
+        load_field(path)
+
+    path2 = tmp_path / "bad2.npz"
+    np.savez(path2, probs=np.zeros((8, 2), dtype=np.float32), origin=np.zeros(3),
+             shape=np.array([2, 2, 2]), spacing=np.array([1.0]),
+             features=np.array(["Donor", "Wingding"]))
+    with pytest.raises(ValueError, match="unexpected feature channels"):
+        load_field(path2)
+
+
+def test_feature_vocabulary_matches_rdkit():
+    """The model's channel names must be real RDKit families, or nothing aligns."""
+    from dmta.pharmacophore import FEATURE_CHANNELS, _feature_factory
+    families = set(_feature_factory().GetFeatureFamilies())
+    missing = set(FEATURE_CHANNELS) - families
+    assert not missing, f"not RDKit feature families: {sorted(missing)}"
+
+
+def test_matching_is_geometric_not_a_feature_count(tmp_path):
+    """The point of the clique constraint: right features, wrong distances, no match."""
+    import numpy as np
+    from dmta.pharmacophore import load_field, match_score
+    # three Donor spots on a 6 A grid, far apart
+    path = _synthetic_field(tmp_path, spacing=6.0,
+                            hot=[(0, 0, 0.95), (1, 0, 0.95), (7, 0, 0.95)])
+    field = load_field(path, threshold=0.9, min_separation=3.0)
+    assert len(field.spots) == 3
+
+    spread = field.positions                     # exactly on the spots
+    tight = np.array([[0, 0, 0], [0.4, 0, 0], [0, 0.4, 0]], dtype=float)
+    types = ["Donor"] * 3
+    matched_spread = match_score(field, types, spread, tolerance=0.5)[1]
+    matched_tight = match_score(field, types, tight, tolerance=0.5)[1]
+    assert matched_spread == 3, "features sitting on the spots should match them all"
+    assert matched_tight <= 1, "a cluster matched spots 6 A apart — geometry ignored"
+
+
+def test_unembeddable_molecule_scores_none(tmp_path):
+    """A compound with no 3D structure must not silently score zero."""
+    from dmta.pharmacophore import conformer_features, load_field, score_compound
+    assert conformer_features("not a molecule at all") == []
+    field = load_field(_synthetic_field(tmp_path, hot=[(0, 0, 0.95)]), threshold=0.9)
+    assert score_compound(field, "not a molecule at all")["score"] is None
+
+
+def test_bigger_molecule_can_match_more(tmp_path):
+    """Sanity check on direction, and a reminder that size is the confound here."""
+    from dmta.pharmacophore import load_field, score_compound
+    path = _synthetic_field(tmp_path, spacing=3.0, hot=[
+        (0, 4, 0.95), (5, 4, 0.95), (10, 5, 0.95), (40, 1, 0.95), (80, 0, 0.95)])
+    field = load_field(path, threshold=0.9, min_separation=2.0)
+    small = score_compound(field, "c1ccccc1", n_conformers=2)
+    big = score_compound(field, "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+                         n_conformers=2)
+    assert big["matched"] >= small["matched"]

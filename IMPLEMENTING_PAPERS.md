@@ -20,7 +20,7 @@ one turned out not to apply; the remaining work is paper 1 and paper 5.
 | 6 | RMT linear model | ✅ built, **measured, rejected** — worse than the forest | $0 | — |
 | 2 | DEL Simulator | ✅ built as an auditor — **falsified our own 2.75×** | $0 | — |
 | 3 | ADME/PK reporting | ✅ read in full — **does not apply yet**; my earlier claim was wrong | $0 | — |
-| 1 | Pharmacophore maps | 2 days → 2 weeks | ~$0 | nothing |
+| 1 | Pharmacophore maps | ✅ Phase A built, **measured, rejected** — loses to heavy-atom count | $0 | — |
 | 5 | De novo design | 2–3 weeks | $0 | a chemist to judge output |
 | 4 | PLK3 campaign | hours | $0 | the supporting information |
 
@@ -112,7 +112,24 @@ paper-driven requirements; item 1, the censored likelihood, is the one that pays
 
 ---
 
-## 3rd: Pharmacophore maps (paper 1) — the replacement for docking
+## ✅ DONE, and rejected: Pharmacophore maps (paper 1)
+
+**Outcome, 2026-11-25.** Phase A built and measured in about a day, as estimated. Their
+field inference ran on our 2RGP pocket in four CPU-minutes; the screening half, which they
+do not release, is `dmta/pharmacophore.py`. **It failed both bars.** Enrichment 1.24×
+against the 1.5× bar, and it loses to ranking by molecular size (1.37×, free). The
+time-split result looked passed at 1.65× but amounts to 7 actives against 6 out of 41 — a
+gap that appears 65% of the time by chance.
+
+**Phase B (the vector database) should not be built.** Nothing in Phase A earns it.
+
+**One caveat worth keeping**, because it is the honest reading: the paper claims *hit
+finding*, and we tested *potency ranking in a mature series*. Those are different tasks,
+and ours is the harder one for a coarse representation. The claim this result supports is
+narrow — pharmacophore maps do not help rank the next batch — not that the method fails at
+its own job. [RESULTS.md](RESULTS.md) 10 has the four implementation caveats too.
+
+### The original plan, for the record
 
 Docking failed here three times. This is the paper's own answer to why, and it is the
 most promising unimplemented idea we have. It splits into a cheap test and an expensive
@@ -120,7 +137,7 @@ build, and **we should only pay for the second if the first passes.**
 
 ### Phase A — inference only (about 2 days)
 
-Their inference code and weights are released (`github.com/postera-ai/phc4-eld-generator`,
+Their inference code and weights are released (`github.com/postera-ai/phc4-field-generator`,
 weights on Zenodo); **training and benchmarking code are not.** So the first version uses
 their model as a black box.
 
@@ -152,7 +169,13 @@ pocket in seconds. **Effort:** 2 days for the test, 2 weeks for the scaled versi
 
 ---
 
-## 4th: De novo design (paper 5) — the real capability upgrade
+## NOW FIRST: De novo design (paper 5) — the only remaining capability
+
+**This is now the whole of the remaining roadmap.** Four methods have been tried against
+the random forest and all four lost, three of them more sophisticated than it. The model
+is not the bottleneck and the 3D representation is not the bottleneck. What is left is
+**what the loop is allowed to propose** — and right now that is a fixed 924-compound
+catalogue.
 
 The closest published work to our loop: from 42 measured compounds and 515 inactives,
 their model designed 5 compounds *with predicted routes*; all 5 were made and 3 were

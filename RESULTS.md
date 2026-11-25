@@ -841,3 +841,106 @@ variable: 754 distinct Murcko scaffolds in 924 compounds, against 903 for the un
 sample and **5** for our own library. So that control did not cleanly test what it was
 built to test, and the learnability table above — not the dense arm — is what actually
 settles the question.
+
+---
+
+# 10. Predicted pharmacophore maps: tested, and not adopted
+
+Boe, Robinson, Lee et al., *Digital Discovery* 2026, 5, 5001 — a model that takes a
+rigid pocket and predicts, over a 3D grid, the probability that each of six interaction
+feature types belongs at each point. It was the most promising unimplemented idea we had,
+because it is the paper's own answer to why docking disappoints, and docking failed here
+three times (sections 4–5).
+
+**Their release and the half that is missing.** `postera-ai/phc4-field-generator` gives
+featurization, model and inference — the *field*. It does not include the screening side:
+taking that field and ranking a library against it. `dmta/pharmacophore.py` is that half.
+It reduces the field to sparse typed hot spots, annotates each ligand conformer with
+RDKit's `BaseFeatures` factory (whose families are the model's six channels, exactly), and
+finds the largest geometrically consistent correspondence between ligand features and hot
+spots — a maximum-weight clique where every pairwise distance must agree within a
+tolerance. No pose search, so none of the pose-dependence the paper argues against.
+
+Their model ran on our cleaned 2RGP receptor and crystal ligand — the same inputs the
+failed docking used — in about four CPU-minutes for 79,507 grid points.
+
+```bash
+python3 pharmacophore_validate.py /tmp/phc4/out_2rgp/phc4_field.npz 1500 CHEMBL203
+```
+
+1,500 real EGFR compounds, measured IC50, "active" = this dataset's top decile
+(pIC50 ≥ 8.70). Scoring ran at ~10 compounds/s; all 1,500 embedded.
+
+| method | ρ | top decile | base | enrichment |
+|---|---|---|---|---|
+| pharmacophore score | 0.174 | 0.133 | 0.107 | **1.24×** |
+| pharmacophore match count | 0.070 | 0.167 | 0.107 | 1.55× |
+| **heavy atom count** | **0.340** | 0.147 | 0.107 | **1.37×** |
+| QED | −0.293 | 0.073 | 0.107 | 0.68× |
+| random forest (scaffold split) | 0.766 | 0.459 | 0.104 | 4.42× |
+
+**Verdict: fails, and Phase B should not be built.** 1.24× against a bar of 1.5×, and —
+the part that settles it — **it loses to ranking compounds by molecular size.** Heavy atom
+count gets 1.37× and has twice the rank correlation, for no compute at all. Its
+correlation with the pharmacophore score is only 0.412, so the score is not *merely*
+size; but whatever else it contains is not helping.
+
+## The time-split result, and why it is not a win
+
+The second bar was signal on the time split, where the 2D model collapses. On the surface
+it looks passed:
+
+| method | ρ | enrichment |
+|---|---|---|
+| pharmacophore (no training) | 0.179 | 1.65× |
+| random forest (trained on earlier compounds) | 0.133 | 1.37× |
+
+**That difference is one compound.** The late period has 411 compounds, so the top decile
+is 41, and a base rate of 0.107 makes those enrichments **7 actives versus 6**. Simulating
+41 draws at a common hit rate, a gap that large or larger appears **65% of the time by
+chance**. It is not evidence of anything, and reporting 1.65× against 1.37× as a win would
+be exactly the kind of number this platform exists to catch.
+
+One real observation survives: the pharmacophore score is **stable** across splits — ρ
+0.174 over the whole set, 0.179 on unseen-chemotype compounds — while the forest falls
+from 0.766 to 0.133. That stability is structural, since the score requires no training
+and so cannot degrade when the chemotype shifts. It is the one property that would justify
+revisiting this. But a stable 0.18 is not useful, and stability at a low level is not the
+same as signal.
+
+## Where this test is unfair to the paper, stated plainly
+
+The paper claims efficient **hit finding** — picking actives out of a large library, tested
+prospectively on AKR1C1. Our test is **potency ranking within a mature congeneric series**:
+1,500 elaborated EGFR inhibitors that are nearly all active, where the question is which
+is more potent. Those are different tasks, and the second is harder for a coarse
+representation by construction — a pharmacophore says "this molecule can reach the right
+contacts", which barely distinguishes two compounds that both can.
+
+So the honest claim is narrow: **predicted pharmacophore maps do not help rank the next
+batch in a programme**, which is what this platform does. It is not a finding that the
+method fails at the job its authors claim for it. The fair test of that would be actives
+against property-matched decoys (DUD-E or LIT-PCBA style), which we do not currently run.
+
+Four further caveats belong to my implementation, not the model: only 3 conformers per
+compound; matches capped at 8 points of a 19-point query; no steric or clash term, so a
+molecule can satisfy the query without physically fitting; and clique matching rather than
+the alignment-and-vector-database screening the paper describes.
+
+## What it cost, and the running tally
+
+About 20 CPU-minutes and no GPU. Including this, the score on PostEra's published methods
+is now:
+
+| capability tried | outcome |
+|---|---|
+| Docking, 3 structures | rejected (0.0–0.37×) |
+| Chemprop D-MPNN | rejected (ρ 0.425 vs 0.510) |
+| RMT linear model | rejected (ρ 0.389 vs 0.562) |
+| Pharmacophore maps | rejected (1.24×, loses to heavy-atom count) |
+| **Random forest on 2D fingerprints** | **still the incumbent, 4.42×** |
+
+Four attempts to beat a random forest on Morgan fingerprints have now failed, three of
+them methods that are more sophisticated by any reasonable measure. That is worth stating
+as a finding rather than a series of disappointments: **on this task, at this data scale,
+the simple model is hard to beat, and the remaining value is not in the model.**

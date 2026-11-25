@@ -10,7 +10,7 @@ what this file previously said about it. Corrections are marked where they sit.
 
 | # | Paper | Venue | Read? | In the platform? |
 |---|---|---|---|---|
-| 1 | Learning probabilistic pharmacophore maps enables efficient hit finding | Digital Discovery 2026, 5, 5001 | full text (CC-BY) | **no** |
+| 1 | Learning probabilistic pharmacophore maps enables efficient hit finding | Digital Discovery 2026, 5, 5001 | full text (CC-BY) | **implemented, then rejected** on measurement |
 | 2 | Understanding ML models trained on DNA-encoded libraries | Digital Discovery 2026, 5, 4976 | full text | **yes, as an auditor** — and it failed our own benchmark |
 | 3 | Confusion Without Measure: units and best practices in reporting preclinical ADME/PK | J. Med. Chem. 2026, 69, 12723 | **full text** | **no** — and *not* applicable yet; see the correction |
 | 4 | Structure-Guided Discovery of Selective PLK3 Inhibitors | ACS Med. Chem. Lett. 2026, 17, 1266 | metadata only (paywalled) | n/a — a campaign, not a method |
@@ -42,15 +42,31 @@ pose information is removed, and failed to pair actives to the right target on a
 LIT-PCBA-derived benchmark. That recommendation now carries a correction.
 
 **Could we build it?** Partly. Inference code and model weights are released
-(`github.com/postera-ai/phc4-eld-generator`, weights on Zenodo); **training and
+(`github.com/postera-ai/phc4-field-generator`, weights on Zenodo); **training and
 benchmarking code are proprietary and not released.** We already have the adjacent
 pieces: structure preparation, binding-site definition from the crystal ligand, and
 pocket-residue computation (the 3D viewer computes the 58 residues lining the 2RGP
 pocket). The missing part — a model mapping pocket residues to a probabilistic feature
 map — is a serious build, not a weekend.
 
-**Verdict: the most promising unimplemented idea for us**, because it targets the exact
-capability we tested and rejected.
+**Implemented 2026-11-25, and not adopted.** Their inference ran on our 2RGP receptor in
+four CPU-minutes. We wrote the missing screening half (`dmta/pharmacophore.py`: hot-spot
+reduction, RDKit feature annotation, geometric clique matching). On 1,500 real EGFR
+compounds it reached **1.24× enrichment** — above docking's 0.37×, but below the 1.5× bar
+and **below ranking compounds by heavy-atom count** (1.37×), which costs nothing. The
+time-split result looked like a win at 1.65× against the forest's 1.37×; that is 7 actives
+against 6 out of 41, and a gap that size arises 65% of the time by chance.
+
+**Where the test is unfair to them, and it matters:** the paper claims *hit finding* —
+actives out of a large library, tested prospectively on AKR1C1. We tested *potency ranking
+within a mature congeneric series*, where nearly every compound is already active. Those
+are different jobs. The narrow, honest claim is that predicted pharmacophore maps do not
+help rank the next batch in a programme. A fair test of their own claim would be actives
+against property-matched decoys, which we do not run. Full detail, including four caveats
+that belong to my implementation rather than their model, in [RESULTS.md](RESULTS.md) 10.
+
+**Verdict: the most promising unimplemented idea turned out not to help here** — but this
+is the one rejection of the four where I would not generalise beyond our own task.
 
 ---
 
@@ -222,8 +238,14 @@ see [RESULTS.md](RESULTS.md) 8.
 6. **Paper 5 is the template** for the de novo capability, if enumeration is ever
    outgrown — and it is now the most promising unimplemented item alongside paper 1.
 
-Three of the six have now been acted on. Papers 1 and 5 remain the ones worth building;
-paper 4 remains data rather than method.
+Four of the six have now been acted on. **Paper 5 (de novo design) is the only one left
+that would add a capability**; paper 4 remains data rather than method.
+
+**Four attempts to beat a random forest on 2D fingerprints have now failed** — docking,
+Chemprop, the RMT model and pharmacophore maps. Three of those are more sophisticated by
+any reasonable measure. At this data scale the remaining value is not in the model or in
+the 3D representation; it is in what the loop is allowed to propose, which is what paper 5
+is about.
 
 **The pattern across all three implementations is the same.** Each one was adopted or
 rejected on a measurement, not on what its authors reported — and in two of the three the

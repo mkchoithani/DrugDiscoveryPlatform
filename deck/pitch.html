@@ -44,6 +44,7 @@
   .pass { background:#dff2e5; color:#0b5d3b; }
   .fail { background:#f1f3f5; color:#78838f; }
   .run  { background:#fff1d6; color:#8a5a00; }
+  .tie  { background:#e4ecf5; color:#28506f; }
 
   .cols { display:flex; gap:12mm; }
   .cols > div { flex:1; }
@@ -80,7 +81,7 @@
   <div class="rule"></div>
   <p class="sub">A closed-loop platform that tells a chemist which molecules to make next —
   and refuses to ship any capability that has not beaten a test whose answer we already knew.</p>
-  <div class="foot"><span>25 November 2026</span><span>Status: 1 capability passed · 5 rejected</span></div>
+  <div class="foot"><span>25 November 2026</span><span>Status: 2 kept · 3 rejected · 1 tie · 1 parked</span></div>
 </section>
 
 <!-- 2 PROBLEM -->
@@ -138,13 +139,14 @@
     <div class="big" style="margin-top:9mm">
       <div><div class="n">7</div><div class="l">capabilities put through the examination</div></div>
       <div><div class="n">2</div><div class="l">passed and kept</div></div>
-      <div class="grey"><div class="n">4</div><div class="l">failed and were deleted</div></div>
-      <div class="grey"><div class="n">3</div><div class="l">of our own published claims corrected</div></div>
+      <div class="grey"><div class="n">3</div><div class="l">failed and were deleted</div></div>
+      <div class="grey"><div class="n">4</div><div class="l">of our own published claims corrected</div></div>
     </div>
-    <div class="note">Four rejections is the product working &mdash; each one a feature a
+    <div class="note">Three rejections is the product working &mdash; each one a feature a
     competitor could have shipped on a plausible-looking number. The two that passed are the
-    loop itself and the handling of compounds too weak to measure. One more is parked
-    unfinished rather than counted as either.</div>
+    loop itself and the handling of compounds too weak to measure. A fourth came out a
+    <em>tie</em>, and the fourth corrected claim is ours: we had been calling that tie a
+    rejection. One more is parked unfinished rather than counted as either.</div>
   </div>
   <div class="foot"><span>Hara Vara</span><span>4</span></div>
 </section>
@@ -206,15 +208,16 @@
 
 <!-- 7 REJECTED -->
 <section class="slide">
-  <p class="kicker">What we deleted</p>
-  <h2>Five capabilities failed the examination <span class="q">— so they are not in the product</span></h2>
+  <p class="kicker">What we deleted, and what only tied</p>
+  <h2>Three capabilities failed the examination <span class="q">— and a fourth only tied</span></h2>
   <div class="body">
     <table>
       <tr><th>Capability</th><th>Published promise</th><th>What we measured</th><th>Outcome</th></tr>
       <tr><td><strong>Docking</strong> (3D pose scoring)</td><td>Physics ranks unseen chemotypes</td>
           <td>No signal on potency (3 structures + ensemble) or on hit finding</td><td><span class="tag fail">rejected ×4</span></td></tr>
       <tr><td><strong>Chemprop</strong> (graph neural net)</td><td>Field-standard strong baseline</td>
-          <td>Lost to a random forest on 7 of 11 programmes</td><td><span class="tag fail">rejected</span></td></tr>
+          <td>24 programmes: paired CI [−0.097, +0.024] <em>contains zero</em>. Gap plateaus at
+          −0.034 from n≈2,000 up</td><td><span class="tag tie">tie — forest kept on cost</span></td></tr>
       <tr><td><strong>RMT</strong> correlation cleaning</td><td>PNAS 2019 — denoise the covariance</td>
           <td>ρ 0.389 against the forest's 0.562</td><td><span class="tag fail">rejected</span></td></tr>
       <tr><td><strong>Pharmacophore maps</strong></td><td>Cheaper and less biased than docking</td>
@@ -225,7 +228,9 @@
     </table>
     <div class="note" style="margin-top:6mm">Total cost of finding this out: a few hours of CPU
     and no lab money. The alternative was building a pipeline around each one and discovering
-    it after a programme had committed.</div>
+    it after a programme had committed. <strong>Chemprop is the honest case:</strong> we had
+    called it rejected, re-tested it with a paired interval, and found a tie. The forest stays
+    because it costs 96× less to fit, not because it won.</div>
   </div>
   <div class="foot"><span>Hara Vara</span><span>7</span></div>
 </section>
@@ -298,7 +303,7 @@
     <table>
       <tr><th>Next capability</th><th>Compute cost</th><th>What it is actually blocked on</th></tr>
       <tr><td>Foundation-model fine-tune (ChemFM)</td><td>~$5 of GPU</td>
-          <td>Nothing. Chemprop already failed the gate, so this is a long shot we will measure anyway</td></tr>
+          <td>Nothing. A neural net already failed to beat the forest at any data size we reach, so this is a long shot we will measure anyway</td></tr>
       <tr><td>Structure-based scoring in production</td><td>~$10</td>
           <td><strong>A structural chemist</strong> to choose the conformation and binding site</td></tr>
       <tr><td>Synthesis routes (retrosynthesis)</td><td>CPU, free</td>
@@ -331,9 +336,9 @@
         <p>That a capability ships only when it beats a known answer, with the molecule count
         and the p-value shown. This is slower. It is the whole product.</p></div>
     </div>
-    <p class="quote" style="margin-top:12mm">We have rejected five of our own features and
-    corrected three of our own claims. <strong>That is the evidence that the numbers we do
-    report mean something.</strong></p>
+    <p class="quote" style="margin-top:12mm">We have deleted three of our own features,
+    demoted a fourth from "rejected" to a tie, and corrected four of our own claims.
+    <strong>That is the evidence that the numbers we do report mean something.</strong></p>
   </div>
   <div class="foot"><span>Hara Vara</span><span>11</span></div>
 </section>

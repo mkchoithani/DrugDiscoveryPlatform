@@ -1,18 +1,21 @@
 # PostEra's published methods, against what this platform actually does
 
 Six papers, all with Alpha A. Lee as senior author. For each: what it does, whether we
-have it, and whether it is worth having. The short answer is that **none of the six is
-implemented here** — but two of them change decisions already recorded elsewhere in
-this repository, and one of them we independently reinvented.
+have it, and whether it is worth having.
+
+**Updated 2026-11-25.** Three things have changed since the first pass: paper 6 has been
+implemented and measured (and rejected), paper 2 has been used to audit our own headline
+result (which did not survive), and paper 3 has now been read in full — which overturned
+what this file previously said about it. Corrections are marked where they sit.
 
 | # | Paper | Venue | Read? | In the platform? |
 |---|---|---|---|---|
 | 1 | Learning probabilistic pharmacophore maps enables efficient hit finding | Digital Discovery 2026, 5, 5001 | full text (CC-BY) | **no** |
-| 2 | Understanding ML models trained on DNA-encoded libraries | Digital Discovery 2026, 5, 4976 | full text | **no** — but same philosophy, arrived at independently |
-| 3 | Confusion Without Measure: units and best practices in reporting preclinical ADME/PK | J. Med. Chem. 2026, 69, 12723 | metadata only (paywalled) | **no** — most directly applicable of the six |
+| 2 | Understanding ML models trained on DNA-encoded libraries | Digital Discovery 2026, 5, 4976 | full text | **yes, as an auditor** — and it failed our own benchmark |
+| 3 | Confusion Without Measure: units and best practices in reporting preclinical ADME/PK | J. Med. Chem. 2026, 69, 12723 | **full text** | **no** — and *not* applicable yet; see the correction |
 | 4 | Structure-Guided Discovery of Selective PLK3 Inhibitors | ACS Med. Chem. Lett. 2026, 17, 1266 | metadata only (paywalled) | n/a — a campaign, not a method |
 | 5 | SARS-CoV-2 Mpro inhibitors using a synthesis-directed de novo design model | Chem. Commun. 2021, 57, 5909 | full text (CC-BY) | **no** — closest in spirit to our loop |
-| 6 | Ligand biological activity predicted by cleaning positive and negative chemical correlations | PNAS 2019, 116, 3373 | abstract only | **no** — a direct alternative to our model |
+| 6 | Ligand biological activity predicted by cleaning positive and negative chemical correlations | PNAS 2019, 116, 3373 | abstract only | **implemented, then rejected** on measurement |
 
 ---
 
@@ -71,27 +74,69 @@ Their counterintuitive finding has a sibling in ours: exploration (β) *hurt*
 monotonically at small budgets, and our 100-compound qualification rule evaporated on
 held-out data.
 
-**Verdict: no code to adopt, but strong independent corroboration of the approach.**
-Fully open at `github.com/postera-ai/del-simulator` if we ever touch DEL data.
+**Implemented 2026-11-25, as an auditor rather than a feature.** `dmta/del_landscape.py`
+loads their library and affinities as platform compounds; `del_benchmark.py` runs our own
+acquisition comparison in their landscape and ours under one protocol. We use none of
+their DEL-specific machinery (yield, selection rounds, PCR, NGS readout) — only the
+ground truth, because the thing under test is our selection loop.
+
+**It found what it was built to find, and the news was bad.** Our 2.75× enrichment
+becomes **0.71×** in their landscape — worse than random screening. The mechanism is not
+that UCB is a poor acquisition function: their landscape is essentially unlearnable from
+Morgan fingerprints (ρ ≈ 0 with 2,000 training compounds), and a loop cannot beat random
+selection with a blind model. What it really exposed is that **our own simulator is far
+too easy** — ρ 0.89 from 100 compounds, against a median of 0.56 across 24 real
+programmes. Full result, including an honest weakness in the audit's own control arm, in
+[RESULTS.md](RESULTS.md) 9.
+
+**Verdict: the single most valuable paper of the six for us**, and it never became a
+feature. It falsified a number we were publishing.
 
 ---
 
 ## 3. Units and reporting in preclinical ADME/PK (2026)
 
-Paywalled; I have title, author (Matthew C. Robinson, PostEra) and venue only, and will
-not summarise content I have not read.
+**Read in full on 2026-11-25.** This section previously called it "the most immediately
+applicable of the six" and said it was "the one whose subject we are already
+reimplementing by trial and error". **Both claims were wrong, and they were made from the
+title.** The correction is worth more than the original guess.
 
-**Why it is the most immediately applicable of the six.** `dmta/ingest.py` already
-fights precisely this problem, and the evidence is in our own runs:
+**What it actually is.** An *Editorial* on reporting conventions for preclinical **ADME
+and PK** data: in vivo pharmacokinetics (dose, clearance, volume of distribution) and in
+vitro ADME (microsomal and hepatocyte stability, protein binding), plus preclinical
+efficacy. It ends with per-assay reporting checklists (Appendix 2), a table of common unit
+conversions (Appendix 3), and a worked set of confusions — grains versus grams, pounds
+entered as kilograms, bound versus unbound concentrations.
 
-- Units inferred from a column name, then from the value distribution (nM vs µM vs p-scale)
-- Censored values — **51 of 123 Open Source Malaria compounds** were "> X", i.e. too weak to measure
-- Readings that are not concentrations at all: `60% @ 120000`, `25-80% @ 80000`
-- Replicate measurements disagreeing by more than 1 log unit
-- A hardcoded "active ≥ pIC50 8" that silently reported 0% on a programme whose best compound was 7.71
+**What it is not about**, all of which this file previously implied:
 
-A best-practice guide for exactly these decisions would be worth reading properly
-before the ingest rules are finalised. **Worth obtaining the full text.**
+- **Not about potency data.** IC50/Ki curation is barely touched; "potency" appears mainly
+  as a unit list under preclinical efficacy.
+- **Not about censored values.** It says nothing about `> X` or `< X` readings, assay
+  limits, or how to use them. Our Open Source Malaria problem — 51 of 123 values censored
+  — is simply not this paper's subject.
+- **Not about replicate disagreement.** No guidance on aggregating replicates that differ.
+- **Not about machine learning.** Standardised data sets for methodology development are
+  the stated motivation, but no modelling content follows.
+
+**So it does not apply to `dmta/ingest.py` as it stands**, because the platform models
+potency and does not measure a single ADME or PK endpoint. It becomes relevant the day we
+add one, and then it is a genuinely good specification to build against.
+
+**Two things in it are useful now, both small.** First, its insistence that **salt and
+solid form of the batch be recorded** supports keeping per-value provenance rather than
+silently normalising, which our ingest already does when it strips salts. Second — and
+this one lands squarely on real data we have — its advice to *avoid reporting only a
+percentage at a single time point*, because such numbers "depend greatly on assay
+conditions, and are hard to compare across assay setups". That is precisely the
+`60% @ 120000` and `25-80% @ 80000` readings in the Open Source Malaria file. Our choice to
+treat those as unusable rather than convert them is the right one, and now it has a
+citation.
+
+**The censored-value work stands on its own.** It was the one concrete change this paper
+was supposed to justify; it does not, and it should be done anyway, because 51 of 123 OSM
+compounds carry information we are currently discarding. See
+[IMPLEMENTING_PAPERS.md](IMPLEMENTING_PAPERS.md).
 
 ---
 
@@ -149,22 +194,37 @@ on 2048-bit Morgan fingerprints with 60–900 training compounds — exactly the
 median ρ 0.510 vs 0.425 over 18 programmes. An RMT-denoised linear model is a different
 bet from a bigger network, and it comes with interpretability the forest lacks.
 
-**Verdict: a better-motivated next model than Chemprop was**, on this evidence.
+**Implemented 2026-11-25 in `dmta/rmt_model.py`, and not adopted.** Over the same 24
+programmes: forest median ρ **0.562**, best RMT variant **0.389**, worse by 0.098 (just
+outside twice its standard error) and 27× slower to fit. It does win outright on 5 of 24.
+
+**Verdict: the better-motivated next model was still worse.** Two things are worth keeping
+from the exercise. The method is ambiguous in a way the paper does not resolve — inverting
+the cleaned correlation matrix *whitens*, damping the signal directions RMT just found,
+and solving inside the signal subspace instead is much better (ρ 0.389 vs 0.258). And the
+first implementation was broken in a way that looked exactly like a negative result:
+see [RESULTS.md](RESULTS.md) 8.
 
 ---
 
-## What this review changes
+## What this review changed
 
 1. **Boltz-2 recommendation corrected** in ROADMAP.md, citing paper 1.
 2. **Pharmacophore screening replaces "try another docking structure"** as the route to
    structure-based signal, since docking has already failed three times here.
-3. **Paper 6 displaces Chemprop** as the model worth trying next — Chemprop has now been
-   measured and did not win.
-4. **Paper 3 should be read in full before the ingest rules are frozen.** It is the one
-   whose subject we are already reimplementing by trial and error.
-5. **Paper 5 is the template** for the de novo capability, if enumeration is ever
-   outgrown.
+3. **Paper 6 was implemented and rejected.** It was the better-motivated model than
+   Chemprop, and it still lost to the random forest. The model is not the bottleneck.
+4. **Paper 2 was implemented as an auditor and falsified our own headline number.** The
+   2.75× does not survive an independently authored landscape, and the reason is that our
+   simulator is too easy. This is the most useful thing in the whole review.
+5. **Paper 3 was read, and this file's claim about it was wrong.** It concerns ADME/PK
+   reporting, a data domain the platform does not yet touch at all. It blocks nothing.
+6. **Paper 5 is the template** for the de novo capability, if enumeration is ever
+   outgrown — and it is now the most promising unimplemented item alongside paper 1.
 
-Nothing here is implemented yet. This file exists so that none of it is quietly
-forgotten, and so that the two corrections above are recorded next to the decisions
-they overturn.
+Three of the six have now been acted on. Papers 1 and 5 remain the ones worth building;
+paper 4 remains data rather than method.
+
+**The pattern across all three implementations is the same.** Each one was adopted or
+rejected on a measurement, not on what its authors reported — and in two of the three the
+first result was wrong for a reason that had nothing to do with the paper.

@@ -525,3 +525,174 @@ def test_api_inspect_detects_columns():
     assert data["detected"]["value"] == "IC50 (nM)"
     assert data["units"] == "nM"
     assert data["missing"] == []
+
+
+# --- RMT-denoised linear model (PNAS 2019) ------------------------------------
+
+def test_mp_edge_rejects_pure_noise():
+    """The whole method rests on this: random data must yield no signal at all."""
+    import numpy as np
+    from dmta.rmt_model import clip_spectrum
+    rng = np.random.default_rng(0)
+    n, p = 100, 300
+    Z = rng.standard_normal((n, p))
+    Z = (Z - Z.mean(axis=0)) / Z.std(axis=0)
+    eig = np.linalg.svd(Z, full_matrices=False)[1] ** 2 / n
+    signal, noise, edge = clip_spectrum(eig, n, p)
+    assert len(signal) == 0, f"{len(signal)} noise eigenvalues mistaken for signal"
+    assert 0.5 < noise < 1.5
+    assert edge > 1.0
+
+
+def test_mp_edge_finds_a_planted_factor():
+    import numpy as np
+    from dmta.rmt_model import clip_spectrum
+    rng = np.random.default_rng(1)
+    n, p = 120, 400
+    Z = rng.standard_normal((n, 1)) @ (rng.standard_normal((1, p)) * 0.8)
+    Z = Z + rng.standard_normal((n, p))
+    Z = (Z - Z.mean(axis=0)) / Z.std(axis=0)
+    eig = np.linalg.svd(Z, full_matrices=False)[1] ** 2 / n
+    signal, _, edge = clip_spectrum(eig, n, p)
+    assert len(signal) >= 1
+    assert signal[0] > edge
+
+
+def test_clipped_spectrum_preserves_the_trace():
+    """Clipping redistributes eigenvalues; it must not create or destroy variance."""
+    import numpy as np
+    from dmta.rmt_model import clip_spectrum
+    rng = np.random.default_rng(2)
+    n, p = 80, 250
+    Z = rng.standard_normal((n, p)) + rng.standard_normal((n, 1)) * 0.7
+    Z = (Z - Z.mean(axis=0)) / Z.std(axis=0)
+    eig = np.linalg.svd(Z, full_matrices=False)[1] ** 2 / n
+    signal, noise, _ = clip_spectrum(eig, n, p)
+    assert abs(signal.sum() + noise * (p - len(signal)) - p) < 1e-6
+
+
+def test_rmt_model_fits_and_predicts_every_compound():
+    from dmta.library import enumerate_library
+    from dmta.assay import SimulatedAssay
+    from dmta.rmt_model import RmtModel
+    lib = enumerate_library()[:160]
+    assay = SimulatedAssay(lib, seed=3)
+    train, test = lib[:120], lib[120:]
+    for c, v in zip(train, assay.measure(train).values()):
+        c.measured = v
+    model = RmtModel().fit(train)
+    mu, sigma = model.predict(test)
+    assert len(mu) == len(test) == len(sigma)
+    assert model.n_signal >= 1, "no signal found in real chemistry — suspicious"
+    assert all(s > 0 for s in sigma)
+    r = model.report()
+    assert r["model"] == "rmt-linear-project" and r["n_features"] > 0
+    assert r["mp_edge"] > 1.0, "the bulk edge collapsed — the variance fit diverged again"
+    assert 0.0 < r["noise_level"] < 2.0
+
+
+def test_rmt_beats_plain_least_squares_on_the_same_features():
+    """The paper's central claim, as a test: inverting the raw covariance is worse."""
+    import numpy as np
+    from dmta.library import enumerate_library
+    from dmta.assay import SimulatedAssay
+    from dmta.chem import feature_vector
+    from dmta.rmt_model import RmtModel, ols_baseline_metrics
+    from dmta.models import regression_metrics
+    lib = enumerate_library()[:200]
+    assay = SimulatedAssay(lib, seed=4)
+    train, test = lib[:150], lib[150:]
+    measured = assay.measure(train)
+    for c in train:
+        c.measured = measured[c.id]
+    held = assay.measure(test)
+    truth = [held[c.id] for c in test]
+
+    mu, _ = RmtModel().fit(train).predict(test)
+    rmt = regression_metrics([float(v) for v in mu], truth)
+    X = np.array([feature_vector(c.smiles) for c in train], dtype=float)
+    y = np.array([c.measured for c in train], dtype=float)
+    Xt = np.array([feature_vector(c.smiles) for c in test], dtype=float)
+    ols = ols_baseline_metrics(X, y, Xt, np.array(truth))
+    assert rmt["mae"] < ols["mae"], f"rmt {rmt['mae']} vs ols {ols['mae']}"
+
+
+def test_rmt_handles_a_constant_feature_block():
+    """Identical molecules make every fingerprint bit constant; must not divide by zero."""
+    from dmta.library import enumerate_library
+    from dmta.rmt_model import RmtModel
+    lib = enumerate_library()[:12]
+    same = [lib[0].__class__(**{**lib[0].__dict__}) for _ in range(10)]
+    for i, c in enumerate(same):
+        c.measured = 6.0 + i * 0.01
+    model = RmtModel().fit(same)
+    mu, sigma = model.predict(same[:3])
+    assert len(mu) == 3 and all(s > 0 for s in sigma)
+
+
+# --- DEL Simulator landscape (Digital Discovery 2026) -------------------------
+
+def _write_del_pair(tmp_path, rows, affinities):
+    """rows: (nsynthon_id, smiles, relative_fraction). affinities: one per row, in order."""
+    lib = tmp_path / "library.csv"
+    aff = tmp_path / "affinity_seh_512.csv"
+    lib.write_text("nsynthon_id,smiles,relative_fraction\n"
+                   + "".join(f"{a},{b},{c}\n" for a, b, c in rows))
+    aff.write_text("pKd\n" + "".join(f"{v}\n" for v in affinities))
+    return lib, aff
+
+
+def test_del_join_is_positional_and_correct(tmp_path):
+    """The affinity file has no identifier, so row i must map to library row i."""
+    from dmta.del_landscape import load_del_landscape
+    rows = [("1_1_1", "CCO", 1.0), ("1_1_2", "CCCO", 1.0), ("1_2_1", "c1ccccc1", 1.0)]
+    lib, aff = _write_del_pair(tmp_path, rows, [5.0, 6.0, 7.0])
+    got = {c.smiles: c.truth for c in load_del_landscape(lib, aff, n=None)}
+    assert got == {"CCO": 5.0, "CCCO": 6.0, "c1ccccc1": 7.0}
+
+
+def test_del_refuses_a_misaligned_pair(tmp_path):
+    """A length mismatch means the two files came from different runs — never guess."""
+    import pytest
+    from dmta.del_landscape import load_del_landscape
+    rows = [("1_1_1", "CCO", 1.0), ("1_1_2", "CCCO", 1.0)]
+    lib, aff = _write_del_pair(tmp_path, rows, [5.0, 6.0, 7.0])
+    with pytest.raises(ValueError, match="positional"):
+        load_del_landscape(lib, aff, n=None)
+
+
+def test_del_keeps_the_major_product_of_a_duplicated_molecule(tmp_path):
+    """Yield noise emits the same molecule several times; keep the intended product."""
+    from dmta.del_landscape import load_del_landscape
+    rows = [("1_1_1", "CCO", 0.1), ("1_1_1", "CCO", 0.9), ("1_1_2", "CCCO", 1.0)]
+    lib, aff = _write_del_pair(tmp_path, rows, [5.0, 8.0, 6.0])
+    got = {c.smiles: c.truth for c in load_del_landscape(lib, aff, n=None)}
+    assert got["CCO"] == 8.0, "kept a trace side product over the major one"
+    assert len(got) == 2
+
+
+def test_del_dense_sampling_is_denser_than_uniform(tmp_path):
+    """The two sample shapes must actually differ, or the three-arm test is vacuous."""
+    from dmta.del_landscape import load_del_landscape
+    rows, affinities = [], []
+    for c1 in range(8):
+        for c3 in range(8):
+            rows.append((f"{c1}_0_{c3}", f"{'C' * (c1 + 1)}{'O' * (c3 + 1)}", 1.0))
+            affinities.append(4.0 + 0.1 * c1 + 0.01 * c3)
+    lib, aff = _write_del_pair(tmp_path, rows, affinities)
+    uniform = load_del_landscape(lib, aff, n=16, seed=0, sampling="uniform")
+    dense = load_del_landscape(lib, aff, n=16, seed=0, sampling="dense")
+    assert len({c.intermediate_key for c in dense}) < len({c.intermediate_key for c in uniform})
+
+
+def test_noisy_replay_assay_keeps_truth_clean():
+    from dmta.del_landscape import NoisyReplayAssay
+    from dmta.library import enumerate_library
+    lib = enumerate_library()[:20]
+    for i, c in enumerate(lib):
+        c.truth = 5.0 + i * 0.1
+    assay = NoisyReplayAssay(lib, noise=0.5, seed=1)
+    readings = assay.measure(lib)
+    assert all(assay.truth(c.id) == c.truth for c in lib), "truth was perturbed"
+    assert any(abs(readings[c.id] - c.truth) > 1e-6 for c in lib), "no noise was added"
+    assert len(assay.top_fraction(0.25)) == 5

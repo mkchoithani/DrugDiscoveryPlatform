@@ -677,3 +677,167 @@ win — nobody is leaving 0.2 of ρ on the table by keeping the simpler model.
 
 The second one is the more instructive: had the shapes happened to broadcast, it would
 have scored the wrong compounds against the wrong truths and reported a number.
+
+---
+
+# 8. RMT-denoised linear model: tested, and not adopted
+
+Lee et al., PNAS 2019, 116, 3373 — random matrix theory to separate real chemical
+correlations from undersampling noise. It was the better-motivated next model after
+Chemprop lost 7: built for the "features ≫ molecules" regime we are actually in,
+prospectively validated, and interpretable. Implemented in `dmta/rmt_model.py` and run
+on the same 24 programmes, same scaffold splits, same protocol.
+
+```bash
+python3 model_benchmark.py 24 forest,rmt-project,rmt-clip
+```
+
+```
+24 programmes in 1002s
+
+  model         median rho  median MAE    wins   fit seconds
+  forest             0.562       0.401      15          17.3
+  rmt-project        0.389       0.447       5         457.9
+  rmt-clip           0.258       1.709       4         527.0
+
+  paired against the forest, programme by programme:
+    rmt-project median -0.098   spread 0.226   2 s.e. 0.092   -> WORSE than the forest
+    rmt-clip   median -0.127   spread 0.295   2 s.e. 0.121   -> WORSE than the forest
+```
+
+**Verdict: keep the random forest.** The better RMT variant is worse by 0.098 of ρ, which
+is just outside twice its standard error, and it takes **27× longer to fit**. It does win
+outright on 5 of 24 programmes, so it is not useless — but nothing here justifies
+replacing the incumbent.
+
+## Two variants, because "clean the correlations" is ambiguous
+
+The method keeps the eigenvalues of the feature correlation matrix that lie above the
+Marchenko–Pastur edge, σ²(1 + √(p/n))², and treats the rest as noise. What you do next is
+not stated by the eigenvalue clipping itself, and the two readings behave very differently:
+
+| variant | what it does | median ρ |
+|---|---|---|
+| `rmt-clip` | invert the cleaned matrix literally — generalised least squares | 0.258 |
+| `rmt-project` | solve inside the signal subspace, discard the noise complement | 0.389 |
+
+`clip` is the textbook formula and it is the wrong tool for ranking. Inverting *whitens*:
+a signal direction with eigenvalue 90 gets damped by 1/90, while a noise direction sitting
+at the flat level keeps weight ≈ 1. It systematically throws away the structure RMT just
+found. Its median MAE of 1.709 — against the forest's 0.401 — is that effect showing up
+in absolute terms.
+
+## The bug this nearly shipped with
+
+The first version scored ρ between −0.44 and +0.37, near zero on almost every programme,
+and the obvious conclusion was "the paper's method does not transfer". That conclusion
+would have been wrong. Inspecting the fitted model showed:
+
+```
+n_signal 325   edge 0.0   noise_level 0.0
+noise directions get weight 1/floor = 100000000.0
+```
+
+The textbook recipe fits the bulk variance self-consistently: set the edge from a
+variance, re-estimate the variance from whatever falls below the edge, repeat. With
+p = 2060 features and n = 325 compounds there are 1,735 **zero** eigenvalues, and they
+count towards the trace — so every pass pulls the estimate down, which lowers the edge,
+which admits more eigenvalues as signal, which lowers it further. It converged to
+edge = 0, declared all 325 eigenvalues signal, and clamped the noise floor to 1e-8,
+giving the noise directions a weight of 10⁸.
+
+For a *correlation* matrix the fit is also unnecessary: the diagonal is all ones, so the
+trace is exactly p and the null variance is exactly 1. Removing the iteration took one
+programme from ρ −0.074 to **0.714**.
+
+Two tests now guard this: pure random data must yield **zero** signal eigenvalues, and a
+fitted model must report an edge above 1.0. Either would have caught it immediately.
+
+**The lesson is the one this repository keeps relearning.** A plausible negative result
+is not self-validating. "The paper's method does not work here" and "I implemented it
+wrongly" produce the same table, and only reading the fitted internals tells them apart.
+
+---
+
+# 9. Auditing our own benchmark against PostEra's DEL Simulator
+
+Every number above section 1 comes from real measured compounds. The simulated benchmark
+in the README does not: its **2.75× enrichment** was measured on a landscape we wrote
+ourselves (`dmta/assay.py`'s `SimulatedAssay`). A selection strategy can look good on one
+landscape for reasons that have nothing to do with the method, and nothing in this
+repository could have revealed it.
+
+PostEra's DEL Simulator (*Digital Discovery* 2026, 5, 4976, `postera-ai/del-simulator`)
+exists for the same reason ours does, and gives us a second ground-truth landscape that
+we did not author — with affinities anchored on **2,660 real soluble-epoxide-hydrolase
+binders** rather than on a random weighting we chose. We generated its example library
+(105,197 distinct molecules) and ran our own acquisition comparison inside it, holding
+everything else fixed.
+
+```bash
+python3 del_benchmark.py 8 16 <del-data-dir> 42 7 101
+```
+
+```
+                                  UCB over random
+  our landscape (924 cmpds / 5 scaffolds)        2.75x
+  their landscape, uniform sample                0.71x
+  their landscape, dense sample                  0.70x
+```
+
+On their landscape the loop is **worse than random screening**, in both sample shapes.
+The 2.75× reproduced exactly on ours, so the protocol was identical.
+
+## But the mechanism is not what the headline suggests
+
+Prospective ρ on their landscape was **−0.04 to +0.11** — the model had no predictive
+signal at all. Active learning cannot beat random selection with a blind model; that is
+close to a tautology, and it makes the comparison a poor test of the *acquisition
+function*. So the real question is whether their landscape is learnable at all:
+
+| landscape | n_train | ρ | MAE | R² |
+|---|---|---|---|---|
+| ours (simulated) | 100 | **0.892** | 0.298 | 0.707 |
+| ours (simulated) | 700 | **0.965** | 0.180 | 0.891 |
+| theirs (5k pool) | 700 | 0.121 | 0.476 | 0.161 |
+| theirs (20k pool) | 2,000 | −0.033 | 0.444 | 0.185 |
+
+**Their landscape is essentially unlearnable from Morgan fingerprints** — ρ ≈ 0 even with
+2,000 training compounds. Their affinity is a kernel on Tversky similarity to the
+reference actives, so it is driven by rare high-similarity events: a needle landscape, not
+a smooth one. (R² stays mildly positive while ρ is ~0, meaning the model learns the mean
+and not the ranking.)
+
+So the finding is not "UCB is bad". It is this:
+
+> **Our simulated landscape is far too easy.** ρ 0.89 from 100 training compounds, where
+> the median across 24 real ChEMBL programmes is 0.56 (section 8) and the best real
+> programme reaches 0.78. A landscape that a model can nail from 100 compounds will make
+> any sensible acquisition function look good.
+
+## What changes, and what does not
+
+**Changed.** The README's 2.75× is now reported as what it is: the enrichment on a
+landscape we wrote, which flatters the loop, and an upper bound rather than a forecast.
+
+**Not changed — and this is the important part.** The loop's real-data evidence does not
+rest on the simulator. Section 2 measures enrichment on **four real targets** with real
+measured values revealed only on selection: 2.37×, 1.74×, 2.18× and 1.97×, with random
+selection recovering each library's base rate within noise. Section 6 finds the loop
+helps in 77 of 97 real programmes. None of that is affected by what our simulator does,
+because none of it uses our simulator.
+
+**The precondition is now explicit, and it is measurable.** The loop beats screening when
+its model has ranking signal on the target, and fails when it does not. We already report
+that gate — the scaffold-split ρ — and on real medicinal-chemistry programmes it is met
+(median 0.56) while on a uniform draw from a 105k DEL it is not (≈0). That is a statement
+about *when to run a loop at all*, which is more useful than the 2.75× ever was.
+
+## An honest weakness in this audit
+
+The "dense" arm was meant to separate "their landscape is different" from "their sample is
+sparse", by taking products that share two of three reaction cycles. It barely moved the
+variable: 754 distinct Murcko scaffolds in 924 compounds, against 903 for the uniform
+sample and **5** for our own library. So that control did not cleanly test what it was
+built to test, and the learnability table above — not the dense arm — is what actually
+settles the question.

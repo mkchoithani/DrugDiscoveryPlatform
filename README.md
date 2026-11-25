@@ -11,6 +11,9 @@ browser UI, a CLI, and benchmarks that check the loop actually beats screening.
   that fails and why that matters.
 - [LANDSCAPE.md](LANDSCAPE.md) — how this compares to Proton, Iktos, Schrödinger and the
   open-source stack, and why it is built this way.
+- [PAPERS.md](PAPERS.md) — PostEra's six published methods against what this actually does.
+- [IMPLEMENTING_PAPERS.md](IMPLEMENTING_PAPERS.md) — what each of those would take to
+  build, what it costs, and the known-answer test it has to pass first.
 
 ## Run it
 
@@ -196,6 +199,14 @@ every cycle and asked only to order the next batch. Full diagnosis in [RESULTS.m
 **2.75× enrichment** over random screening for UCB, and shared intermediates cut the batch from
 256 reactions to 208 (19% fewer). A single longer run reached 3.96× with prospective Spearman ρ
 climbing to 0.78 by cycle 4.
+
+> **Read this number as an upper bound, not a forecast.** It was measured on a landscape
+> we wrote ourselves, and [RESULTS.md](RESULTS.md) 9 shows that landscape is too easy: a
+> model reaches ρ 0.89 on it from 100 compounds, where the median across 24 real
+> programmes is 0.56. Re-run inside PostEra's independently authored DEL Simulator, the
+> same loop scores **0.71×** — worse than random — because its model has no signal there
+> at all. The loop's real-data evidence is in RESULTS.md 2 and 6 (2.37× on real EGFR
+> compounds, helps in 77 of 97 real programmes) and does not depend on this simulator.
 
 Two honest readings of that table:
 

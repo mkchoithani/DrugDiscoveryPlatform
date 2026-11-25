@@ -449,3 +449,79 @@ def test_docking_separates_a_real_drug_from_a_non_binder():
     assert result.scores["gefitinib"] < result.scores["ethanol"] - 2.0
     assert dk.apply_scores([drug, junk], result) == 2
     assert drug.docking_score == result.scores["gefitinib"]
+
+
+# ---------------------------------------------------------- CSV ingest & API
+
+from dmta.ingest import detect_units, load_csv
+
+
+def test_ingest_handles_a_messy_real_export(tmp_path):
+    """Wrong column names, nM units, salts, censored values, junk rows."""
+    csv_path = tmp_path / "export.csv"
+    csv_path.write_text(
+        "Corporate ID,Structure,IC50 (nM),Date Tested\n"
+        "A-1,CC(=O)Oc1ccccc1C(=O)O,120,2021-03-01\n"
+        "A-2,[Na+].[O-]C(=O)c1ccccc1,45,2021-04-01\n"       # a salt
+        "A-3,COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1,8,2021-05-01\n"
+        "A-4,CCO,> 10000,2021-06-01\n"                       # censored
+        "A-5,NOTASMILES,15,2021-07-01\n"                     # unparsable
+        "A-6,CC(=O)Oc1ccccc1C(=O)O,,2021-08-01\n")           # no result
+    compounds, report = load_csv(csv_path)
+
+    assert report.columns["smiles"] == "Structure"
+    assert report.columns["value"] == "IC50 (nM)"
+    assert report.columns["date"] == "Date Tested"
+    assert report.units == "nM"
+    assert report.dropped.get("censored value (>, <, ~)") == 1
+    assert report.dropped.get("no result recorded") == 1
+    assert any("unreadable" in k or "too small" in k for k in report.dropped)
+    assert all("." not in c.smiles for c in compounds)       # salts stripped
+    assert all(c.year is not None for c in compounds)
+    # 120 nM -> pIC50 6.92
+    aspirin = next(c for c in compounds if "OC(=O)C" in c.smiles or "C(=O)O" in c.smiles)
+    assert 6.0 < aspirin.truth < 8.0
+
+
+def test_units_are_detected_from_name_and_from_values():
+    assert detect_units("pIC50", [7.2, 8.1]) == "log"
+    assert detect_units("IC50 (uM)", [1.2]) == "uM"
+    assert detect_units("IC50 (nM)", [120.0]) == "nM"
+    assert detect_units("activity", [7.1, 6.8, 8.2]) == "log"     # looks like a p-scale
+    assert detect_units("activity", [1200.0, 45.0]) == "nM"       # looks like nanomolar
+
+
+def test_ingest_refuses_a_file_it_cannot_use(tmp_path):
+    bad = tmp_path / "bad.csv"
+    bad.write_text("name,colour\nthing,red\n")
+    with pytest.raises(ValueError, match="no SMILES column"):
+        load_csv(bad)
+
+
+def test_api_routes_are_not_shadowed_by_the_static_mount():
+    """The UI is mounted at '/', which swallows any route declared after it.
+    This caught a real 405 on the upload endpoint."""
+    from fastapi.testclient import TestClient
+    import dmta.api as api
+    client = TestClient(api.app)
+    res = client.post("/api/evaluate/inspect", files={"file": ("x.csv", b"a,b\n1,2\n", "text/csv")})
+    assert res.status_code != 405, "static mount is shadowing the API routes again"
+    # inspect answers even when it recognises nothing: the page then asks the user
+    # to pick the columns, rather than rejecting their file outright.
+    assert res.status_code == 200
+    assert set(res.json()["missing"]) == {"smiles", "value"}
+
+
+def test_api_inspect_detects_columns():
+    from fastapi.testclient import TestClient
+    import dmta.api as api
+    client = TestClient(api.app)
+    body = (b"Corporate ID,Structure,IC50 (nM),Date Tested\n"
+            b"A-1,CC(=O)Oc1ccccc1C(=O)O,120,2021-03-01\n")
+    res = client.post("/api/evaluate/inspect", files={"file": ("export.csv", body, "text/csv")})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["detected"]["smiles"] == "Structure"
+    assert data["detected"]["value"] == "IC50 (nM)"
+    assert data["units"] == "nM"
+    assert data["missing"] == []

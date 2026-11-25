@@ -58,7 +58,12 @@ def time_split(compounds: list[Compound], cutoff_year: int | None = None, test_f
     return train, test, cutoff_year
 
 
-def evaluate(train: list[Compound], test: list[Compound], n_estimators: int = 300) -> dict:
+def evaluate(train: list[Compound], test: list[Compound], n_estimators: int = 300,
+             threshold: float | None = None) -> dict:
+    """threshold defines "active". Left as None it is the 90th percentile of the
+    TRAINING values — dataset-relative, and set without looking at the test set.
+    A hardcoded cut (say pIC50 >= 8) silently reports 0% on any programme whose
+    compounds never reach it, which is most of them."""
     for c in train:
         c.measured = c.truth
     model = PropertyModel(n_estimators=n_estimators).fit(train)
@@ -72,9 +77,12 @@ def evaluate(train: list[Compound], test: list[Compound], n_estimators: int = 30
     errors = np.abs(np.array(mu) - np.array(truth))
     metrics["sigma_error_spearman"] = _spearman(sigma, errors)
     # top-decile enrichment: of the 10% the model likes most, how many are truly active?
+    if threshold is None:
+        threshold = float(np.percentile([c.truth for c in train], 90))
+    metrics["active_threshold"] = round(threshold, 3)
     k = max(1, len(test) // 10)
     top_idx = np.argsort(mu)[::-1][:k]
-    active = np.array(truth) >= 8.0
+    active = np.array(truth) >= threshold
     metrics["top_decile_hit_rate"] = round(float(active[top_idx].mean()), 3)
     metrics["base_hit_rate"] = round(float(active.mean()), 3)
     metrics["enrichment"] = (round(metrics["top_decile_hit_rate"] / metrics["base_hit_rate"], 2)

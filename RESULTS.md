@@ -424,3 +424,210 @@ are stages 1 and 2 of the roadmap, they cost under $10, and the fingerprint base
 have to beat (ρ 0.815) is already measured.**
 
 Total cost of reaching this conclusion: about 70 minutes of laptop CPU. No GPU, no spend.
+
+## 4HJO and the ensemble: also rejected
+
+The obvious objection to the 2RGP result is that one rigid structure suits only the
+chemotype it was crystallised with. So the test was repeated on **4HJO** — EGFR in its
+*inactive* conformation with erlotinib bound, a genuinely different shape of the same
+protein — and then on the **ensemble**, taking each compound's best score across both.
+
+```bash
+python3 dock_validate.py 4HJO 250 CHEMBL203
+python3 compare_structures.py
+```
+
+| structure | n | ρ | top-10% hit rate | base | enrichment | separation |
+|---|---|---|---|---|---|---|
+| 2RGP (active-like, 2.0 Å) | 249 | 0.038 | 8% | 22% | 0.37× | −0.25 |
+| 4HJO (inactive, 2.75 Å) | 249 | 0.049 | **0%** | 22% | **0.00×** | −0.24 |
+| ensemble of both | 249 | 0.014 | **0%** | 22% | **0.00×** | −0.28 |
+| *fingerprint model* | 250 | *0.815* | *80%* | *23%* | *3.51×* | — |
+
+4HJO found **zero** actives in its top decile. So did the ensemble. Every separation
+figure is negative: in all three cases actives score slightly *worse* than inactives.
+
+Three independent attempts, no signal in any of them. This is no longer a bad structure
+choice — it is the scoring function being unable to rank compounds within a congeneric
+series, which is a documented limitation rather than a surprise.
+
+**Decision: docking stays off for this target.** The remaining options (GNINA CNN
+rescoring, covalent docking for the 28%) are substantially more work with no evidence
+from these runs that they would clear 3.51×. The fingerprint model is already doing that
+job well on EGFR.
+
+Total cost of reaching a confident "no": about **70 minutes of laptop CPU and $0**. No
+GPU rented, nothing deployed. The `chembl_with_docking` profile exists and remains
+unused; `compare_structures.py` will re-run this comparison for any new structure in
+seconds, since scores are cached.
+
+---
+
+# 5. Eleven real programmes, not one
+
+A single good result is an anecdote. ChEMBL data can be split by source paper, and one
+paper is usually one team optimising one series — far closer to a live programme than a
+whole target, which is thousands of unrelated compounds from hundreds of groups.
+
+EGFR alone contains **27 such programmes** of 40+ compounds, holding 2,674 compounds.
+
+```bash
+python3 programme_sweep.py CHEMBL203 50 12
+```
+
+| paper | n | chemotypes | spread | ρ (unseen chemotypes) | loop enrichment | speed to best |
+|---|---|---|---|---|---|---|
+| CHEMBL5728555 | 884 | 226 | 3.98 | **0.770** | 1.91× | 13.8× |
+| CHEMBL5727085 | 175 | 72 | 2.00 | 0.540 | 1.38× | 11.0× |
+| CHEMBL3638799 | 169 | 23 | 3.70 | **−0.099** | 1.41× | 10.6× |
+| CHEMBL1240340 | 165 | 59 | 3.48 | 0.513 | 1.58× | 1.7× |
+| CHEMBL1140899 | 101 | 41 | 4.93 | 0.243 | 1.34× | — |
+| CHEMBL5725990 | 94 | 48 | 2.00 | 0.510 | 1.30× | 3.0× |
+| CHEMBL5727286 | 77 | 23 | 2.00 | 0.514 | **0.93×** | 4.9× |
+| CHEMBL3853319 | 66 | 49 | 2.80 | 0.373 | 1.77× | 2.1× |
+| CHEMBL5725419 | 66 | 25 | 4.48 | 0.559 | 1.29× | 1.4× |
+| CHEMBL1143196 | 64 | 12 | 4.34 | 0.767 | 2.00× | 1.3× |
+| CHEMBL5725787 | 59 | 24 | 2.11 | 0.533 | 1.54× | 0.9× |
+
+**Across 11 programmes:**
+
+- Ranking unseen chemotypes: **median ρ 0.514**, range −0.10 to 0.77
+- Loop enrichment over chance: **median 1.41×**, range 0.93 to 2.00
+- Speed to the programme's best compound: **median 2.56×**
+- The loop helped in **10 of 11 (91%)**
+
+Two programmes were skipped before evaluation because their potency spans under 1.5 log
+units — there is nothing in them to learn. One more had too few compounds to hold
+chemotypes out. All three exclusions are reported rather than quietly dropped.
+
+The failures are as useful as the successes. CHEMBL3638799 has **ρ −0.099** — the model
+cannot rank its chemotypes at all — yet the loop still reached the best compound 10.6×
+sooner, because within-series exploitation does not need cross-series generalisation.
+CHEMBL5727286 is the opposite: the model ranks adequately (ρ 0.514) while the loop lands
+**below chance** on enrichment at 0.93×.
+
+**What this supports:** the loop usually helps on a real single-team campaign, with a
+median saving worth having, and it will occasionally not. That is a claim with a
+distribution behind it, not a single flattering number. Run
+`programme_sweep.py` on any target before promising anything about it.
+
+## A second target: VEGFR2
+
+```bash
+python3 -m dmta.cli chembl-fetch --target CHEMBL279 --refresh
+python3 programme_sweep.py CHEMBL279 50 10
+```
+
+| paper | n | ρ | loop enrichment | speed to best |
+|---|---|---|---|---|
+| CHEMBL3638801 | 276 | 0.580 | 2.02× | 1.8× |
+| CHEMBL5725448 | 216 | **0.759** | 2.00× | 1.3× |
+| CHEMBL1240340 | 162 | 0.633 | 1.91× | 2.1× |
+| CHEMBL3879910 | 190 | 0.590 | 1.59× | 4.0× |
+| CHEMBL5728123 | 92 | 0.511 | 1.46× | 1.9× |
+| CHEMBL3638799 | 169 | **−0.219** | 1.24× | 5.3× |
+| CHEMBL3886771 | 240 | 0.371 | 1.17× | 1.0× |
+| CHEMBL3639299 | 146 | 0.210 | 1.17× | 1.5× |
+| CHEMBL3886699 | 63 | −0.022 | **0.84×** | 1.3× |
+| CHEMBL5728351 | 73 | 0.601 | **0.76×** | — |
+
+- Median ρ **0.545** (range −0.22 to 0.76), median enrichment **1.35×**, median speed **1.79×**
+- The loop helped in **7 of 10 (70%)**
+
+**Both targets together: 21 programmes, the loop helped in 17 (81%).**
+
+One pattern is worth acting on. Every outright failure — CHEMBL5727286 (n=77),
+CHEMBL5728351 (n=73), CHEMBL3886699 (n=63) — came from a programme of **under 100
+compounds**, though several small programmes did succeed. Below about 100 compounds the
+result is high-variance, so an evaluation on a small dataset should be treated as
+indicative rather than decided.
+
+The claim this supports, stated as narrowly as the evidence allows:
+
+> On a real single-team medicinal-chemistry campaign of roughly 100 compounds or more,
+> this loop reaches the programme's best compounds meaningfully sooner than testing in
+> the order they were actually made — in about four cases out of five. In the fifth it
+> does not, and the same evaluation tells you which case you are in before you commit.
+
+---
+
+# 6. Ninety-seven programmes — and a hypothesis that did not survive
+
+```bash
+python3 mega_sweep.py            # 10 targets, 704 seconds
+python3 sweep_analysis.py
+```
+
+**97 programmes across 10 targets** spanning kinases, a lipid kinase, a protease, an ion
+channel, an oxidoreductase, a lyase and a GPCR.
+
+> **Overall, the loop helped in 77 of 97 programmes (79%).**
+
+That is the headline number, and it holds across target families rather than resting on
+kinases.
+
+## The hypothesis that failed
+
+After 21 programmes it looked as though every failure came from a programme of under 100
+compounds. A tempting rule: *only take programmes with 100+ compounds.*
+
+Across 97 programmes, by size:
+
+| compounds | helped |
+|---|---|
+| < 60 | 22/27 (81%) |
+| 60–100 | 22/33 (67%) |
+| 100–150 | 11/11 (100%) |
+| 150–250 | 15/19 (79%) |
+| 250+ | 7/7 (100%) |
+
+No monotone pattern. The original observation was a small-sample artefact.
+
+Fitted properly — rule derived on 48 programmes, graded on the other 49:
+
+| candidate rule | qualifies | turns away | separation |
+|---|---|---|---|
+| 80+ compounds and 2.5+ log spread | 83% | 77% | **+6%** |
+| model scaffold ρ ≥ 0.6 | 84% | 77% | **+8%** |
+
+Both are far too small to qualify anyone on. The by-bucket tables looked convincing —
+ρ 0.4–0.6 showed 89% against 59% for ρ 0.2–0.4 — and **none of it survived a held-out
+test.** Had the rule been fitted and graded on the same 97 programmes, it would have
+looked publishable.
+
+## What this actually means
+
+**Nothing measurable in advance reliably predicts which programmes the loop will fail
+on.** That is an uncomfortable result and it is the honest one.
+
+It also matters less than it first appears, because the pre-qualification rule was only
+ever a shortcut. The free retrospective evaluation does not *predict* whether the loop
+helps on a customer's chemistry — **it measures it, on their data.** A rule would have
+been a guess made before looking; the evaluation is the looking.
+
+So the claim stands as:
+
+> Across 97 real medicinal-chemistry programmes from 10 targets, this loop reached the
+> best compounds meaningfully sooner than the order they were actually made in **79% of
+> the time**. We cannot currently tell in advance which 21% it will not help — so we run
+> the evaluation on your own historical data first, free, and you see your own number
+> before committing anything.
+
+## Open Source Malaria: what real open data looks like
+
+OSM publishes everything, failures included. Of 147 compounds in its database:
+
+| | |
+|---|---|
+| a usable number | **46** |
+| censored ("> X" — too weak to measure) | 51 |
+| never tested | 24 |
+| single-point readings ("70% @ 120000") | 26 |
+
+123 rows reached the cleaner; **68 compounds survived it**. The verdict was mixed and
+reported as such: the loop found 7 of the top 7 and reached the best compound in 16
+experiments against ~34 for random, while the model scored **ρ −0.2** on unseen
+chemotypes — strong within the series, useless beyond it.
+
+A tidy ChEMBL paper yields a far higher usable fraction than a real programme does.
+Any intake pipeline has to survive that gap, and say what it discarded.

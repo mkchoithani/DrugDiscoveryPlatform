@@ -138,6 +138,40 @@ def cmd_chembl_fetch(args, store):
         print(f"  {k:<16} {v}")
 
 
+def cmd_evaluate(args, store):
+    """The customer-facing flow: their CSV in, an honest report out."""
+    from .evaluate import evaluate_dataset
+    from .ingest import load_csv
+    from .report import write_report
+
+    print(f"reading {args.csv}")
+    compounds, ingest = load_csv(
+        args.csv, smiles_column=args.smiles_column, value_column=args.value_column,
+        id_column=args.id_column, date_column=args.date_column, units=args.units)
+    print(f"  columns used: {ingest.columns}")
+    print(f"  units: {ingest.units}")
+    print(f"  {ingest.rows_read} rows -> {ingest.compounds} usable compounds, "
+          f"{ingest.scaffolds} chemotypes")
+    for reason, n in ingest.dropped.items():
+        print(f"    dropped {n:>5}  {reason}")
+    for w in ingest.warnings:
+        print(f"  ! {w}")
+
+    ev = evaluate_dataset(compounds, ingest, batch_size=args.batch,
+                          cycles=args.cycles, top_n=args.top, verbose=True)
+
+    print(f"\nVERDICT: {ev.verdict['headline']}")
+    print(f"  {ev.verdict['detail']}")
+    if ev.verdict.get("caveat"):
+        print(f"  caveat: {ev.verdict['caveat']}")
+
+    out = write_report(ev, args.out or "evaluation-report.html",
+                       title=args.title, customer=args.customer,
+                       provenance=args.provenance)
+    print(f"\nreport written to {out}")
+    return ev
+
+
 def cmd_structure(args, store):
     """Prepare a PDB entry for docking and show exactly what was done to it."""
     from .structure import list_ligands, prepare
@@ -208,6 +242,22 @@ def main(argv=None):
     q.add_argument("--target", default="CHEMBL203")
     q.add_argument("--type", default="IC50")
     q.set_defaults(fn=cmd_chembl_validate)
+
+    q = sub.add_parser("evaluate", help="evaluate a customer CSV and write a report")
+    q.add_argument("--csv", required=True, help="their export: structures and results")
+    q.add_argument("--out", help="where to write the HTML report")
+    q.add_argument("--title", default="Retrospective evaluation")
+    q.add_argument("--customer", help="name shown on the report")
+    q.add_argument("--provenance", help="where the data came from and who ran the analysis; "
+                                        "always set this on a report you will share")
+    q.add_argument("--smiles-column"); q.add_argument("--value-column")
+    q.add_argument("--id-column"); q.add_argument("--date-column")
+    q.add_argument("--units", choices=["log", "nM", "uM"],
+                   help="override the detected potency units")
+    q.add_argument("--batch", type=int, help="compounds per cycle (default ~4% of the set)")
+    q.add_argument("--cycles", type=int)
+    q.add_argument("--top", type=int, default=10, help="size of the 'best compounds' target set")
+    q.set_defaults(fn=cmd_evaluate)
 
     q = sub.add_parser("structure", help="prepare a PDB entry for docking")
     q.add_argument("--pdb", default="2RGP")

@@ -3,32 +3,51 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Structure viewer — DMTA platform</title>
-<link rel="stylesheet" href="./style.css">
+<title>Hara Vara — Structure viewer</title>
+<link rel="stylesheet" href="./style.css?v=1795569712">
 <style>
   .viewer-layout { display: grid; grid-template-columns: 300px 1fr 280px; gap: 16px; align-items: start; }
-  #gl { position: relative; width: 100%; height: 620px; border-radius: 10px;
-        background: #090d13; border: 1px solid var(--line); overflow: hidden; }
-  #gl canvas { border-radius: 10px; }
+  #gl { position: relative; width: 100%; height: 620px; border-radius: var(--md-shape-m);
+        background: #0E1512; border: 1px solid var(--md-outline-variant); overflow: hidden; }
+  #gl canvas { border-radius: var(--md-shape-m); }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--dim); }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
   .toolbar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
   .toolbar button { padding: 6px 11px; font-size: 12px; }
-  .toolbar button[aria-pressed=true] { background: var(--design); color: #0b1020; border-color: transparent; }
+  .toolbar button[aria-pressed=true] {
+    background: var(--md-secondary-container); color: var(--md-on-secondary-container);
+    border-color: transparent; }
   .pick { max-height: 520px; overflow: auto; }
   .pick table { font-size: 12px; }
   .pick tr { cursor: pointer; }
   .pick tr:hover td { background: var(--panel2); }
-  .pick tr[aria-selected=true] td { background: #1e2a3d; color: var(--ink); }
+  .pick tr[aria-selected=true] td {
+    background: var(--md-primary-container); color: var(--md-on-primary-container); }
   .readout div { padding: 5px 0; border-bottom: 1px dashed #222b36; display: flex; justify-content: space-between; gap: 10px; }
   .readout div:last-child { border: 0; }
   .readout span:last-child { font: 12px var(--mono); }
   .hint { color: var(--faint); font-size: 12px; line-height: 1.5; }
-  .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--dim); font-size: 13px; }
+  .loading { position: absolute; inset: 0; display: grid; place-items: center; color: #9AA69F; font-size: 13px; }
   @media (max-width: 1250px) { .viewer-layout { grid-template-columns: 1fr; } #gl { height: 440px; } }
 </style>
 </head>
 <body>
+<div class="appbar">
+  <a class="brand" href="./index.html">
+    <span class="brand-mark">HV</span>
+    <span class="brand-text">
+      <span class="brand-name">Hara Vara</span>
+      <span class="brand-sub">Drug discovery platform</span>
+    </span>
+  </a>
+  <nav>
+    <a href="./index.html">Design · Make · Test</a>
+    <a href="./upload.html">Evaluate a programme</a>
+    <a href="./viewer.html" aria-current="page">Structure viewer</a>
+  </nav>
+  <span class="spacer"></span>
+</div>
+
 <header>
   <div>
     <h1>Structure viewer</h1>
@@ -40,7 +59,7 @@
       <option value="2RGP">2RGP — EGFR, active-like (2.0 Å)</option>
       <option value="4HJO">4HJO — EGFR, inactive + erlotinib (2.75 Å)</option>
     </select>
-    <a class="btn ghost" href="./index.html">← Back to the loop</a>
+    
   </div>
 </header>
 
@@ -84,6 +103,6 @@
 </main>
 
 <script src="./vendor/3Dmol-min.js"></script>
-<script src="./viewer.js"></script>
+<script src="./viewer.js?v=1795569712"></script>
 </body>
 </html>

@@ -96,8 +96,19 @@ DOCKING_OBJECTIVE = Objective(
 
 CHEMBL_DOCKING_PROFILE: list[Objective] = CHEMBL_PROFILE + [DOCKING_OBJECTIVE]
 
+# For a retrospective replay scored on potency: the objective must match the
+# question being asked. Judging a loop on potency while it optimises drug-likeness
+# marks it down for obeying its instructions. Light property guards remain so it
+# cannot simply chase the heaviest molecule in the set.
+POTENCY_LED_PROFILE: list[Objective] = [
+    Objective("potency", "Potency (p-scale)", 8.0, "predicted", "pIC50", "up", 5.0, 9.0),
+    Objective("mw", "MW ≤ 650", 0.5, "descriptor", "mw", "down", 650, 850),
+    Objective("sa", "Synthetic accessibility", 0.5, "descriptor", "sa_score", "down", 5.0, 7.5),
+]
+
 PROFILES = {
     "oral_lead_opt": DEFAULT_PROFILE,
+    "potency_led": POTENCY_LED_PROFILE,
     "chembl": CHEMBL_PROFILE,
     "chembl_with_docking": CHEMBL_DOCKING_PROFILE,
 }

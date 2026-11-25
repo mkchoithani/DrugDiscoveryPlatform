@@ -1,0 +1,124 @@
+OSM_ID,SMILES,IC50_nM,Series
+OSM-L-01,Cc1cc(/C=C2\S/C(=N\c3ccccc3)N(c3ccccc3)C2=O)c(C)n1-c1cccc(F)c1,3200,Series 1
+OSM-S-2,Cc1cc(C=O)c(C)n1-c1ccc(F)cc1,60% @ 120000,Series 1
+OSM-S-3,CCOC(=O)c1cc(C)n(-c2ccc(F)cc2)c1C,11960,Series 1
+OSM-S-4,Cc1cc(C(=O)O)c(C)n1-c1ccc(F)cc1,75% @ 120000,Series 1
+OSM-S-5,Cc1cc(C(=O)OCC(N)=O)c(C)n1-c1ccc(F)cc1,404,Series 1
+OSM-S-6,Cc1cc(C(=O)OCC(=O)Nc2c(C)n(C)n(-c3ccccc3)c2=O)c(C)n1-c1ccc(F)cc1,345,Series 1
+OSM-S-7,Cc1cc(C(=O)N(C(=O)NC2CCCCC2)C2CCCCC2)c(C)n1-c1ccc(F)cc1,7800,Series 1
+OSM-S-8,Cc1cc(C(=O)Nc2c(C)n(C)n(-c3ccccc3)c2=O)c(C)n1-c1ccc(F)cc1,100% @ 80000,Series 1
+OSM-S-9,CC(=O)N(C1=NC(=O)/C(=C/c2cc(C)n(-c3ccc(F)cc3)c2C)S1)c1ccccc1,47,Series 1
+OSM-S-10,Cc1cc(/C=C2\S/C(=N\c3ccccc3)NC2=O)c(C)n1-c1ccc(F)cc1,176,Series 1
+OSM-S-12,Cc1cc(C(=O)O)c(C)n1-c1ccccc1,70% @ 120000,Series 1
+OSM-S-13,Cc1ccc(-n2c(C)cc(C(=O)O)c2C)cc1,70% @ 120000,Series 1
+OSM-S-14,Cc1cc(C(=O)O)c(C)n1-c1ccc(C(F)(F)F)cc1,25% @ 120000,Series 1
+OSM-S-16,Cc1c(NC(=O)CNC(=O)c2ccccc2)c(=O)n(-c2ccccc2)n1C,>80000,
+OSM-S-19,Cc1cc(C(=O)NCC(N)=O)c(C)n1-c1ccc(F)cc1,25-80% @ 80000,Series 1
+OSM-S-21,Cc1cc(C(=O)NCC(=O)Nc2c(C)n(C)n(-c3ccccc3)c2=O)c(C)n1-c1ccc(F)cc1,31000,Series 1
+OSM-S-28,Cc1cc(C=O)c(C)n1-c1ccccc1,55% @ 120000,Series 1
+OSM-S-29,Cc1ccc(-n2c(C)cc(C=O)c2C)cc1,could not determine,Series 1
+OSM-S-30,CCOC(=O)c1cc(C)n(-c2ccc(C)cc2)c1C,85% @ 120000,Series 1
+OSM-S-31,CCOC(=O)c1cc(C)n(-c2ccccc2)c1C,80% @ 120000,Series 1
+OSM-S-32,CCOC(=O)c1cc(C)n(-c2ccc(C(F)(F)F)cc2)c1C,85% @ 120000,Series 1
+OSM-S-35,Cc1cc(/C=C2\S/C(=N\c3ccccc3)NC2=O)c(C)n1-c1ccccc1,26,Series 1
+OSM-S-37,Cc1ccc(-n2c(C)cc(/C=C3\S/C(=N\c4ccccc4)NC3=O)c2C)cc1,15,Series 1
+OSM-S-38,Cc1cc(/C=C2\S/C(=N\c3ccccc3)NC2=O)c(C)n1-c1ccc(C(F)(F)F)cc1,2,Series 1
+OSM-S-39,Cc1cc(/C=C2\S/C(=N\c3ccccc3)NC2=O)c(C)n1-c1cc(C(F)(F)F)cc(C(F)(F)F)c1,0.78,Series 1
+OSM-S-42,Cc1cc(/C=C2\S/C(=N\c3ccccc3)N(CC#N)C2=O)c(C)n1-c1ccc(C(F)(F)F)cc1,could not determine,Series 1
+OSM-S-43,Cc1cc(/C=C2\SC(N(CC#N)c3ccccc3)=NC2=O)c(C)n1-c1ccc(C(F)(F)F)cc1,3120,Series 1
+OSM-S-45,CC(=O)N(C1=NC(=O)/C(=C/c2cc(C)n(-c3ccc(C(F)(F)F)cc3)c2C)S1)c1ccccc1,12,Series 1
+OSM-S-48,CCOC(=O)c1ccc(-n2c(C)cc(/C=C3\S/C(=N/c4ccccc4)NC3=O)c2C)cc1,169,Series 1
+OSM-S-49,CC(=O)N(C1=NC(=O)/C(=C/c2cc(C)n(-c3ccccc3)c2C)S1)c1ccccc1,63,Series 1
+OSM-S-50,CC(=O)N(C1=NC(=O)/C(=C/c2cc(C)n(-c3ccc(C)cc3)c2C)S1)c1ccccc1,326,Series 1
+OSM-S-51,Cc1cc(/C=C2\S/C(=N\c3ccccc3)NC2=O)c(C)n1-c1ccccn1,307,Series 1
+OSM-S-52,Cc1cc(/C=C2\S/C(=N\c3ccccc3)N(c3ccccc3)C2=O)c(C)n1-c1ccc(C(F)(F)F)cc1,54,Series 1
+OSM-S-54,Cc1cc(/C=C2\S/C(=N\c3ccccc3)N(C3CCCC3)C2=O)c(C)n1-c1ccc(C(F)(F)F)cc1,34,Series 1
+OSM-S-55,O=C1N/C(=N/c2ccccc2)S/C1=C\c1ccccc1,could not determine,
+OSM-S-56,CN(C)C(=O)n1cnc(S(=O)(=O)N(C)c2ccccc2)n1,333,Series 2
+OSM-S-57,Cc1c(C(=O)OCC(N)=O)cnn1-c1ccccc1,>40000,Series 1
+OSM-S-58,Cc1cc(CNCC(N)=O)c(C)n1-c1ccc(F)cc1,>40000,Series 1
+OSM-S-59,Cc1cc(C(=O)N(C)CC(N)=O)c(C)n1-c1ccc(F)cc1,>40000,Series 1
+OSM-S-60,Cc1cc(CN(C)CC(N)=O)c(C)n1-c1ccc(F)cc1,>40000,Series 1
+OSM-S-61,COC(=O)[C@H](CO)NC(=O)c1cc(C)n(-c2ccc(F)cc2)c1C,>40000,Series 1
+OSM-S-62,COC(=O)c1coc(-c2cc(C)n(-c3ccc(F)cc3)c2C)n1,>40000,Series 1
+OSM-S-63,COC(=O)[C@@H]1COC(c2cc(C)n(-c3ccc(F)cc3)c2C)=N1,>40000,Series 1
+OSM-S-64,c1nc(N2CCOCC2)c2sccc2n1,>40000,Series 3
+OSM-S-65,Oc1ncnc2cc(I)sc12,>40000,Series 3
+OSM-S-66,c1ccc(CSc2nc[nH]n2)cc1,>40000,Series 2
+OSM-S-67,CN(C)C(=O)n1cnc(SCc2ccccc2)n1,438,Series 2
+OSM-S-68,Cc1cc(C(=O)OC(C)(C)C(N)=O)c(C)n1-c1ccc(F)cc1,>40000,Series 1
+OSM-S-69,COC(=O)c1sccc1NC=O,>40000,
+OSM-S-70,Clc1ncnc2ccsc12,94000,Series 3
+OSM-S-71,Nc1ncnc2ccsc12,>40000,Series 3
+OSM-S-72,O=S(=O)(Nc1ncnc2sc(-c3ccccc3)cc12)c1ccccc1,>40000,
+OSM-S-73,Cc1ccc(Nc2ncnc3ccsc23)cc1S(=O)(=O)N(C)C,>40000,Series 3
+OSM-S-74,CNS(=O)(=O)c1ccc(CNc2ncnc3cc(-c4ccc(OC)cc4)sc23)s1,17600,Series 3
+OSM-S-75,COc1ccc(S(=O)(=O)N2CCC(Nc3ncnc4ccsc34)CC2)cc1,>40000,Series 3
+OSM-S-76,CC(Nc1ncnc2ccsc12)c1cccc(S(N)(=O)=O)c1,>40000,Series 3
+OSM-S-77,CCOc1ccc(Nc2ncnc3ccsc23)cc1S(=O)(=O)N(C)C,>40000,Series 3
+OSM-S-78,NS(=O)(=O)c1ccc(CNc2nc(-c3ccsc3)nc3ccccc23)cc1,>40000,
+OSM-S-79,NS(=O)(=O)c1cccc(CNc2ncnc3ccsc23)c1,>40000,Series 3
+OSM-S-80,COc1ccc(-c2cc3ncnc(Oc4ccc(S(=O)(=O)N5CCOCC5)cc4)c3s2)cc1,80% @ 40000,Series 3
+OSM-S-81,Cc1cc(C(=O)NCC(=O)N(C)C)c(C)n1-c1ccccc1,>40000,Series 1
+OSM-S-82,CNC(=O)COC(=O)c1cc(C)n(-c2ccc(F)cc2)c1C,9400,Series 1
+OSM-S-83,Cc1cc(C(=O)N2CCNC(=O)C2)c(C)n1-c1ccccc1,>40000,Series 1
+OSM-S-84,CNC(=O)CN(C)C(=O)c1cc(C)n(-c2ccc(Br)cc2)c1C,70% @ 40000,Series 1
+OSM-S-85,COc1cccc(NC(=O)CSc2nnc(-c3cc(C)n(-c4ccccc4)c3C)o2)c1,>40000,Series 1
+OSM-S-86,CCN(CC(=O)Nc1c(F)cccc1F)C(=O)c1cc(C)n(-c2ccc(F)cc2)c1C,>40000,Series 1
+OSM-S-87,Cc1cccc(-n2c(C)cc(C(=O)N(C)CC(=O)Nc3cc(C)on3)c2C)c1,85% @ 40000,Series 1
+OSM-S-88,CNC(=O)CN1CCC(NCc2cc(C)n(-c3ccc(Cl)cc3)c2C)CC1,14700,Series 1
+OSM-S-89,CCNC(=O)C1CC(N)CN1Cc1cc(C)n(-c2ccccc2Cl)c1C,24700,Series 1
+OSM-S-90,CCc1ccc(-n2c(C)cc(CN3CCC(C(=O)O)CC3)c2C)cc1,>40000,Series 1
+OSM-S-91,Cc1cc(C(=O)OCC(=O)N(C)C)c(C)n1-c1ccc(F)cc1,11300,Series 1
+OSM-S-92,NC(=O)COC(=O)c1cnn(-c2ccc(F)cc2)c1,>40000,Series 1
+OSM-S-93,Cc1cc(C(=O)N(C)C)c(C)n1-c1ccc(F)cc1,>40000,Series 1
+OSM-S-94,Cc1cc(CN2CCCC2)c(C)n1-c1ccc(F)cc1,96% @ 40000,Series 1
+OSM-S-95,Cc1cc(CNC2CCN(Cc3ccccc3)CC2)c(C)n1-c1ccc(F)cc1,4800,Series 1
+OSM-S-96,COC(=O)c1coc(-c2cnn(-c3ccc(F)cc3)c2C)n1,>40000,Series 1
+OSM-S-97,Cc1cc(C(=O)CCC(=O)O)c(C)n1-c1ccc(F)cc1,>40000,Series 1
+OSM-S-98,Cc1cc(C(=O)CCC(=O)N(C)C)c(C)n1-c1ccc(F)cc1,>40000,Series 1
+OSM-S-99,CCOC(=O)C(C)OC(=O)c1cc(C)n(-c2ccc(F)cc2)c1C,>40000,Series 1
+OSM-S-100,Cc1cc(C(=O)OC(C)C(=O)O)c(C)n1-c1ccc(F)cc1,>40000,Series 1
+OSM-S-101,Cc1cc(-c2nc(C(=O)O)co2)c(C)n1-c1ccc(F)cc1,>40000,Series 1
+OSM-S-102,CNC(=O)CCC(=O)c1cc(C)n(-c2ccc(F)cc2)c1C,>40000,Series 1
+OSM-S-103,Cc1cc(C(=O)CCC(N)=O)c(C)n1-c1ccc(F)cc1,61% @ 40000,Series 1
+OSM-S-104,Cc1c(-c2nc(C(=O)O)co2)cnn1-c1ccc(F)cc1,>40000,Series 1
+OSM-S-105,Cc1c(-c2nc(C(N)=O)co2)cnn1-c1ccc(F)cc1,>40000,Series 1
+OSM-S-106,Nc1ncnc2cc(-c3cccc(S(N)(=O)=O)c3)sc12,36,Series 3
+OSM-S-107,Fc1ccc(CN2CCN(c3ncnc4ccsc34)CC2)cc1,"92% @ 40,000",Series 3
+OSM-S-108,Cc1cc(/C=C2\S/C(=N\c3ccccc3)NC2=O)c(C)[nH]1,1200,
+OSM-S-109,Cc1cc(/C=C2\S/C(=N\c3ccccc3)NC2=O)c(C)n1-c1ccc([N+](=O)[O-])cc1,262,Series 1
+OSM-S-110,Cc1cc(/C=C2\S/C(=N\c3cccc(O)c3)NC2=O)c(C)n1-c1ccc([N+](=O)[O-])cc1,2300,Series 1
+OSM-S-111,COc1ccc(-n2c(C)cc(/C=C3\S/C(=N\c4ccccc4)NC3=O)c2C)cc1,146,Series 1
+OSM-S-112,COc1ccc(-n2c(C)cc(/C=C3\S/C(=N\c4cccc(O)c4)NC3=O)c2C)cc1,1600,Series 1
+OSM-S-113,Cc1cc(/C=C2\S/C(=N\c3ccc(O)cc3)NC2=O)c(C)n1-c1ccccn1,>40000,Series 1
+OSM-S-114,Cc1cc(/C=C2\S/C(=N\c3cccc(O)c3)NC2=O)c(C)n1-c1ccccc1,1200,Series 1
+OSM-S-115,Cc1cc(/C=C2\S/C(=N\c3ccc(O)cc3)NC2=O)c(C)n1-c1ccccc1,1800,Series 1
+OSM-S-116,Cc1cc(C(=O)OC(C)C(N)=O)c(C)n1-c1ccc(F)cc1,11000,Series 1
+OSM-S-117,c1nc(N2CCOCC2)c2sccc2n1,">40,000",Series 3
+OSM-S-118,c1ccc(-c2ncnc3ccsc23)cc1,">40,000",Series 3
+OSM-S-119,Brc1sc2c(-c3ccccc3)ncnc2c1Br,">40,000",Series 3
+OSM-S-120,Brc1cc2ncnc(-c3ccccc3)c2s1,">40,000",Series 3
+OSM-S-121,Clc1ncnc2cc(Br)sc12,"95% @ 40,000",Series 3
+OSM-S-122,c1ccc(-c2cc3ncnc(-c4ccccc4)c3s2)cc1,">40,000",Series 3
+OSM-S-123,Nc1ncnc2cc(-c3ccccc3)sc12,">40,000",Series 3
+OSM-S-124,COc1ccc(-c2cc3ncnc(N4CCOCC4)c3s2)cc1,"62% @ 40,000",Series 3
+OSM-S-125,Brc1cc2ncnc(N3CCOCC3)c2s1,">40,000",Series 3
+OSM-S-126,c1ccc(-c2cc3ncnc(N4CCOCC4)c3s2)cc1,"39% @ 40,000",Series 3
+OSM-S-127,NS(=O)(=O)c1cccc(-c2cc3ncnc(N4CCOCC4)c3s2)c1,"42% @ 40,000",Series 3
+OSM-S-128,CC(C)(C)c1ccc(-c2cc3ncnc(N)c3s2)cc1,"54% @ 40,000",Series 3
+OSM-S-129,Nc1ncnc2cc(-c3ccc(S(N)(=O)=O)cc3)sc12,">40,000",Series 3
+OSM-S-130,CN(C)C(=O)c1ccc(-c2cc3ncnc(N)c3s2)cc1,">40,000",Series 3
+OSM-S-131,COc1ccc(-c2cc3ncnc(N)c3s2)cc1,">40,000",Series 3
+OSM-S-132,Nc1ncnc2cc(-c3ccc(C(=O)N4CCOCC4)cc3)sc12,">40,000",Series 3
+OSM-S-133,CN(C)C(=O)c1cccc(-c2cc3ncnc(N)c3s2)c1,"73% @ 40,000",Series 3
+OSM-S-134,CN1CCN(C(=O)c2ccc(-c3cc4ncnc(N)c4s3)cc2)CC1,">40,000",Series 3
+OSM-S-135,NC(=O)c1cccc(-c2cc3ncnc(N)c3s2)c1,">40,000",Series 3
+OSM-S-136,Fc1ccc(CN2CCN(c3ncnc4cc(Br)sc34)CC2)cc1,15000,Series 3
+OSM-S-137,NS(=O)(=O)c1cccc(-c2cc3ncnc(N4CCN(Cc5ccc(F)cc5)CC4)c3s2)c1,17000,Series 3
+OSM-S-138,Cc1cc(/C=C2\S/C(=N\c3ccccc3)NC2=O)c(C)n1-c1ccc(N)cc1,23000,Series 1
+chloroquine,CCN(CC)CCCC(C)Nc1ccnc2cc(Cl)ccc12,18.7,control
+artemisinin,C[C@@H]1CC[C@H]2[C@@H](C)C(=O)O[C@@H]3O[C@@]4(C)CC[C@@H]1[C@]32OO4,6,control
+Pyrimethamine,CCc1nc(N)nc(N)c1-c1ccc(Cl)cc1,11,control
+Tafenoquine,COc1cc(C)c2c(Oc3cccc(C(F)(F)F)c3)c(OC)cc(NC(C)CCCN)c2n1,451,control
+Stan-Epoxomicin,CC[C@H](C)[C@H](NC(=O)[C@H]([C@@H](C)CC)N(C)C(C)=O)C(=O)N[C@H](C(=O)N[C@@H](CC(C)C)C(=O)[C@@]1(C)CO1)[C@@H](C)O,4.2,control

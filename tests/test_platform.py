@@ -896,3 +896,101 @@ def test_censored_model_pulls_weak_compounds_down():
     assert (model.imputations_ <= bound + 1e-6).all(), "imputed above the bound"
     r = model.report()
     assert r["n_censored"] == len(censored) and r["model"] == "censored-em"
+
+
+# --- hit-finding metrics (actives vs decoys) ----------------------------------
+
+def _labelled(n=2000, n_actives=100):
+    import numpy as np
+    labels = np.zeros(n, bool)
+    labels[:n_actives] = True
+    return labels
+
+
+def test_hit_finding_metrics_on_known_rankings():
+    """Perfect, random and inverted rankings have known answers. Both of this
+    module's original bugs showed up here: BEDROC returned 12.6 instead of 1.0, and
+    an enrichment of exactly 0.0 was reported as None."""
+    import numpy as np
+    from dmta.hitfinding import hit_finding_report
+    labels = _labelled()
+    rng = np.random.default_rng(0)
+    perfect = np.where(labels, 1.0, 0.0) + rng.normal(0, 1e-9, len(labels))
+
+    good = hit_finding_report(perfect, labels)
+    assert good["roc_auc"] == 1.0
+    assert good["ef_1pct"] == 20.0                    # the ceiling at 5% actives
+    assert 0.99 <= good["bedroc_20"] <= 1.0, good["bedroc_20"]
+
+    chance = hit_finding_report(rng.normal(0, 1, len(labels)), labels)
+    assert 0.45 < chance["roc_auc"] < 0.55
+    assert chance["ef_1pct"] is not None, "an enrichment of 0.0 was reported as None"
+    assert chance["ef_1pct"] < 3.0
+
+    worst = hit_finding_report(-perfect, labels)
+    assert worst["roc_auc"] == 0.0
+    assert worst["bedroc_20"] <= 0.01
+
+
+def test_bedroc_is_bounded():
+    """BEDROC must live in [0, 1]; an unbounded value means the rescaling is wrong."""
+    import numpy as np
+    from dmta.hitfinding import bedroc
+    labels = _labelled(1000, 50)
+    rng = np.random.default_rng(1)
+    for scores in (np.where(labels, 1.0, 0.0), rng.normal(0, 1, 1000),
+                   -np.where(labels, 1.0, 0.0), np.zeros(1000)):
+        value = bedroc(scores, labels)
+        assert -0.01 <= value <= 1.01, value
+
+
+def test_tied_scores_do_not_earn_credit():
+    """A method that gives every compound the same score is exactly at chance."""
+    import numpy as np
+    from dmta.hitfinding import roc_auc
+    labels = _labelled(500, 50)
+    assert abs(roc_auc(np.zeros(500), labels) - 0.5) < 1e-9
+
+
+def test_hit_finding_needs_both_classes():
+    import numpy as np
+    import pytest
+    from dmta.hitfinding import roc_auc
+    with pytest.raises(ValueError, match="both actives and decoys"):
+        roc_auc(np.arange(10.0), np.ones(10, bool))
+
+
+def test_load_ism_reads_dude_format(tmp_path):
+    from dmta.hitfinding import load_ism
+    path = tmp_path / "actives_final.ism"
+    path.write_text("CC(=O)Oc1ccccc1C(=O)O 101343 CHEMBL63786\n"
+                    "c1ccccc1 C04955856\n")
+    rows = load_ism(path)
+    assert rows == [("CC(=O)Oc1ccccc1C(=O)O", "CHEMBL63786"),
+                    ("c1ccccc1", "C04955856")]
+
+
+def test_every_cli_script_parses_and_has_an_entrypoint():
+    """A script with no __main__ guard runs, prints nothing, and exits 0.
+
+    That happened: an edit to hitfinding_benchmark.py replaced the tail of the file
+    and took the entrypoint with it, so the benchmark "succeeded" three times in a
+    row while producing an empty log. Silent success is the worst failure mode there
+    is, and it costs one test to rule out.
+    """
+    import ast
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parent.parent
+    scripts = sorted(p for p in root.glob("*.py") if not p.name.startswith("_"))
+    assert len(scripts) > 5, f"expected several CLI scripts, found {len(scripts)}"
+    for path in scripts:
+        source = path.read_text()
+        ast.parse(source)                       # a syntax error must fail here
+        tree = ast.parse(source)
+        has_main = any(isinstance(n, ast.FunctionDef) and n.name == "main"
+                       for n in tree.body)
+        if not has_main:
+            continue                            # not a CLI script; nothing to check
+        assert '__name__ == "__main__"' in source, (
+            f"{path.name} defines main() but never calls it — it will exit 0 "
+            "having done nothing")

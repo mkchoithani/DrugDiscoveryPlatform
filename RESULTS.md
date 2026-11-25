@@ -1032,3 +1032,87 @@ at all is**.
 improves the mean by less than 0.1 ρ. So the ceiling on this whole line of work is low,
 and censored EM already captures about 57% of it. That is a useful thing to know before
 anyone invests further in censored-data modelling.
+
+---
+
+# 12. The fair test for docking and pharmacophores: hit finding, not potency ranking
+
+Docking and pharmacophore maps were both rejected here (sections 4–5 and 10), and both
+rejections carried the same caveat: **neither method claims to do the job we tested it
+on.** We measured potency ranking inside a mature EGFR series, where nearly every
+compound is already active. Both are hit-finding tools — pull the few actives out of a
+library of mostly-inactive molecules. That is a coarser question, and a coarse
+representation can answer it while being useless at the fine one.
+
+So this is the test they are entitled to.
+
+**Benchmark.** DUD-E (Mysinger et al., *J. Med. Chem.* 2012, 55, 6582), EGFR target:
+542 known actives and 35,050 decoys **matched to the actives on physical properties**
+(MW, logP, rotatable bonds, H-bond counts, charge) while topologically dissimilar.
+Decoys subsampled to 5,000; actives split by scaffold, decoys split at random, and every
+arm scored on the same held-out half — 271 actives against 2,500 decoys, 9.78% active.
+
+**Metrics changed with the question.** Hit finding is judged on whether actives land at
+the *top*, because that is all anyone screens: enrichment factor at 1%, and BEDROC
+(α = 20, weighting roughly the top 8%). ROC AUC is reported but is the least informative
+of the three here.
+
+```bash
+python3 hitfinding_benchmark.py /tmp/dude /tmp/phc4/out_2rgp/phc4_field.npz 5000
+```
+
+| method | AUC | **EF 1%** | EF 5% | **BEDROC** |
+|---|---|---|---|---|
+| pharmacophore (2RGP field) | 0.580 | **1.46** | 1.33 | **0.163** |
+| heavy atom count | 0.516 | **6.57** | 3.31 | **0.346** |
+| QED | 0.372 | 0.00 | 0.07 | 0.026 |
+| 2D forest *(see below)* | 0.996 | 10.23 | 10.23 | 0.991 |
+
+**Verdict: the earlier rejection stands. It was not an artefact of the wrong task.**
+
+The pharmacophore field does beat chance on AUC, and it beats the size baseline there
+(0.580 against 0.516). But it is **4× worse on enrichment at 1%** (1.46 against 6.57) and
+2× worse on BEDROC. It sorts the whole list a little better than size does, while putting
+far less in the top 1% — and the top 1% is the only part a screen ever looks at.
+
+## My own verdict function got this wrong first
+
+The benchmark's automated verdict compared **AUC alone**, and printed:
+
+> "on hit finding the pharmacophore reaches AUC 0.580, beating the size baseline (0.516).
+> It was rejected on the wrong test. Revisit it."
+
+That conclusion was wrong, and it was wrong in the direction I was hoping for — I had
+written the caveat about unfair testing myself, so a result vindicating it was the one I
+expected. A method can hold a respectable AUC by sorting the bottom 90% well. The verdict
+now requires EF at 1% **and** BEDROC to beat the baseline, and it prints the opposite
+conclusion on the same numbers.
+
+## The 2D forest row is a measurement of the benchmark, not of the model
+
+AUC **0.996** and EF at 1% of **10.23** — which is the arithmetic ceiling at a 9.78%
+active rate. A fingerprint model put essentially every active in the top 1%.
+
+That is DUD-E's documented bias, measured. Its actives are literature compounds from
+medicinal-chemistry papers; its decoys are ZINC catalogue molecules. A 2D model can
+separate "looks like a published kinase inhibitor" from "looks like a catalogue compound"
+almost perfectly **without knowing anything about EGFR**. Property matching controls for
+size and lipophilicity; it cannot control for the fact that the two sets come from
+different universes. This is precisely the critique that led to LIT-PCBA, and the
+docstring in `dmta/hitfinding.py` predicted it before the run.
+
+**Consequence: this benchmark cannot adjudicate between a structure-based method and a
+ligand-based one.** It can only tell us whether a structure-based method clears the cheap
+descriptor baselines, which the pharmacophore field does not.
+
+One more sign the benchmark is imperfectly matched: **heavy atom count alone reaches EF
+1% of 6.57.** If the decoys were truly property-matched, molecular size should carry no
+early-enrichment signal at all.
+
+## What this costs the earlier conclusions
+
+Nothing is overturned, and one caveat is retired. Sections 4–5 and 10 each said the fair
+test had not been run. It has now, on the standard benchmark for the purpose, and the
+answer is the same: **neither 3D method beats a cheap descriptor here.** The remaining
+honest caveat is narrower — a cleaner benchmark (LIT-PCBA) might rank them differently,
+and our implementation of the screening half is our own.

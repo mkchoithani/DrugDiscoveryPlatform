@@ -8,13 +8,19 @@ Contenders: the random forest (incumbent), Chemprop's D-MPNN, and the RMT-denois
 linear model of Lee et al., PNAS 2019. Chemprop is skipped automatically when it is
 not installed, so the RMT comparison runs without a torch install.
 
-    python3 model_benchmark.py [n_programmes]
+The 2 s.e. rule below is a screen, not the verdict. `--save results.json` writes the
+per-programme scores so `model_paired_test.py` can bootstrap the paired difference
+properly, without refitting anything.
+
+    python3 model_benchmark.py [n_programmes] [model,model,...] [--save results.json]
 """
 from __future__ import annotations
 
+import json
 import statistics
 import sys
 import time
+from pathlib import Path
 
 from dmta.chembl import programmes
 from dmta.models import PropertyModel, regression_metrics
@@ -73,8 +79,15 @@ def contenders(wanted: list[str] | None) -> list[tuple[str, callable]]:
 
 
 def main():
-    limit = int(sys.argv[1]) if len(sys.argv) > 1 else 24
-    wanted = sys.argv[2].split(",") if len(sys.argv) > 2 else None
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    limit = int(args[0]) if args else 24
+    wanted = args[1].split(",") if len(args) > 1 else None
+    save_to = None
+    if "--save" in sys.argv:
+        i = sys.argv.index("--save")
+        if i + 1 >= len(sys.argv):
+            sys.exit("--save needs a filename")
+        save_to = Path(sys.argv[i + 1])
     models = contenders(wanted)
     names = [n for n, _ in models]
 
@@ -90,7 +103,10 @@ def main():
     print(f"comparing on {len(pool)} programmes "
           f"from {len({t for t, _ in pool})} targets\n")
 
-    header = f"{'paper':<16}{'n':>5}" + "".join(f"{n + ' rho':>14}" for n in names) + f"{'winner':>10}"
+    col = max(16, max(len(n) for n in names) + 5)   # "rmt-project rho" is 15 wide
+    header = (f"{'paper':<16}{'n':>5}"
+              + "".join(f"{name + ' rho':>{col}}" for name in names)
+              + f"{'winner':>10}")
     print(header); print("-" * len(header))
 
     rows, t0 = [], time.time()
@@ -108,7 +124,7 @@ def main():
         rows.append({"document": prog["document"], "n": prog["n"],
                      "scores": scores, "winner": winner})
         print(f"{prog['document']:<16}{prog['n']:>5}"
-              + "".join(f"{_f(scores[n]['spearman']):>14}" for n in names)
+              + "".join(f"{_f(scores[n]['spearman']):>{col}}" for n in names)
               + f"{winner:>10}", flush=True)
 
     if not rows:
@@ -144,6 +160,21 @@ def main():
                    else ("BETTER than the forest" if med > 0 else "WORSE than the forest"))
         print(f"    {name:<10} median {med:+.3f}   spread {spread:.3f}"
               f"   2 s.e. {2 * stderr:.3f}   -> {verdict}")
+
+    if save_to is not None:
+        # Every programme's scores, so the paired test never has to refit a model.
+        payload = {
+            "models": names,
+            "programmes": [
+                {"document": r["document"], "n": r["n"],
+                 "scores": {n: {k: v for k, v in r["scores"][n].items()
+                                if isinstance(v, (int, float, type(None)))}
+                            for n in names}}
+                for r in rows],
+        }
+        save_to.write_text(json.dumps(payload, indent=1))
+        print(f"\n  per-programme scores -> {save_to}")
+        print(f"  now run: python3 model_paired_test.py {save_to}")
 
 
 def _f(v, dp=3) -> str:

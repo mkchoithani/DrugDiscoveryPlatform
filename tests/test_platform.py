@@ -1019,3 +1019,67 @@ def test_saturated_enrichment_is_flagged():
     modest = hit_finding_report(
         np.where(rare, 1.0, 0.0) + np.random.default_rng(0).normal(0, 2, len(rare)), rare)
     assert modest["ef_1pct_saturated"] is False
+
+
+def test_sign_test_matches_the_binomial_by_hand():
+    """The crude test, pinned, because it is the one that gets quoted.
+
+    "The forest won 11 of 18" sounds decisive and is not: p = 0.24. These values are
+    computed from the binomial directly, so a regression in the helper shows up as a
+    wrong p-value rather than a plausible one.
+    """
+    from model_paired_test import sign_test
+    assert sign_test(5, 10) == 1.0                      # a dead heat
+    assert round(sign_test(11, 18), 3) == 0.481         # two-sided
+    assert round(sign_test(10, 10), 4) == 0.002         # a clean sweep
+    # symmetric: losing 11 of 18 is as unlikely as winning 11 of 18
+    assert sign_test(11, 18) == sign_test(7, 18)
+
+
+def test_signed_rank_finds_a_real_shift_and_ignores_noise():
+    import numpy as np
+    from model_paired_test import signed_rank_p
+    rng = np.random.default_rng(0)
+    # a consistent shift of +0.3 on 20 pairs is unmistakable
+    shifted = rng.normal(0.3, 0.05, 20)
+    assert signed_rank_p(shifted, rng, resamples=4000) < 0.01
+    # the same spread with no shift must not be called significant
+    noise = rng.normal(0.0, 0.05, 20)
+    assert signed_rank_p(noise, rng, resamples=4000) > 0.05
+    # all-zero differences cannot support any claim
+    assert signed_rank_p(np.zeros(8), rng, resamples=100) == 1.0
+
+
+def test_the_paired_test_refuses_to_call_a_tie_a_rejection():
+    """The bug this whole script exists to prevent.
+
+    Chemprop was summarised as "rejected" on a median gap of -0.026 against a
+    between-programme spread of 0.135. Fed differences of that shape, the verdict
+    must come back as no evidence of a difference, and must say so in words that
+    cannot be quoted as a rejection.
+    """
+    import json
+    import subprocess
+    import sys
+    import pathlib
+    import numpy as np
+    root = pathlib.Path(__file__).resolve().parent.parent
+    rng = np.random.default_rng(1)
+    diffs = rng.normal(-0.026, 0.135, 18)
+    payload = {"models": ["forest", "contender"], "programmes": [
+        {"document": f"P{i}", "n": 200,
+         "scores": {"forest": {"spearman": 0.5, "mae": 0.4},
+                    "contender": {"spearman": 0.5 + float(d), "mae": 0.4}}}
+        for i, d in enumerate(diffs)]}
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+        json.dump(payload, fh)
+        path = fh.name
+    out = subprocess.run([sys.executable, "model_paired_test.py", path],
+                         cwd=root, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    assert "NO EVIDENCE OF A DIFFERENCE" in out.stdout, out.stdout
+    assert "a tie, not a rejection" in out.stdout
+    assert "cost decision" in out.stdout
+    # and it must not claim the gap is zero
+    assert "still inside the interval" in out.stdout

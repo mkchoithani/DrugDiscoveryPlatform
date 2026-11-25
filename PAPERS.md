@@ -247,6 +247,21 @@ any reasonable measure. At this data scale the remaining value is not in the mod
 the 3D representation; it is in what the loop is allowed to propose, which is what paper 5
 is about.
 
+**But "failed" is not one claim, and this document was flattening three of them into it.**
+[RESULTS.md](RESULTS.md) now separates them, because what each licenses us to say about
+the *paper* is different:
+
+| | what we may say about the paper |
+|---|---|
+| **Docking** | Its claim was tested fairly and did not hold here. The LIT-PCBA authors report the same, and the potency-ranking runs re-confirmed a negative the field already had. The strongest of the four. |
+| **RMT (paper 6)** | We used it as a predictor. The paper is about cleaning a covariance matrix, and never claimed to beat a random forest at QSAR. The effect we measured is large, so rejecting it *as our predictor* is safe — but **its actual contribution is untested here.** |
+| **Pharmacophore maps (paper 1)** | The authors release the field generator; the screening half is ours. Three benchmarks reject **our scorer**, which is weaker evidence against the paper than it reads as. |
+| **Chemprop** | **Not a rejection at all.** Median gap −0.026 against a between-programme spread of 0.135, and run on 175–884 compounds per programme — the small-data regime, where fingerprints are documented to be competitive, not the regime its authors validated. |
+
+None of the four papers is contradicted by our results. Three of them say *"no gain on our
+data, for our use"*, which is the useful claim to act on and a weaker one than the word
+"rejected" carries.
+
 **The pattern across all three implementations is the same.** Each one was adopted or
 rejected on a measurement, not on what its authors reported — and in two of the three the
 first result was wrong for a reason that had nothing to do with the paper.

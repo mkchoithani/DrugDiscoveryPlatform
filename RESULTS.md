@@ -1393,20 +1393,111 @@ condition has now resolved against it. The correct summary of docking in this pr
 > beat molecular size on a benchmark whose decoys were never tested, and failed to beat it
 > on a benchmark whose inactives were. It is not in the product.**
 
-## The running tally
+## The running tally, with "rejected" split into what it actually means
 
-| capability | tests | outcome |
-|---|---|---|
-| the DMTA loop itself | 4 targets, 97 programmes | **passed** — 2.37× base rate, 77/97 won |
-| docking (smina) | 3 structures + ensemble + DUD-E + LIT-PCBA | rejected ×4 |
-| Chemprop (D-MPNN) | 11 programmes | rejected |
-| RMT correlation cleaning | 2 modes, 18 programmes | rejected |
-| predicted pharmacophore maps | potency, DUD-E, LIT-PCBA | rejected ×3 |
-| censored values | OSM, 68 → 118 compounds | **kept**, for the stated reason only |
-| de novo generation (BRICS) | smoke test | incomplete, parked |
+The word was doing three different jobs, and collapsing them overstated the evidence.
+A capability that failed a fair test of its own claim is not the same as one that showed
+no gain *on our data*, and neither is the same as one where the thing we tested was our
+own code.
 
-**Six capabilities examined. Two kept. Three of our own published claims corrected.**
+| kind | what it licenses us to say |
+|---|---|
+| **A · failed a fair test** | The method's own claim was tested and did not hold. An independent published negative, where one exists, makes this stronger. |
+| **B · no evidence of gain here** | A tie. The paired interval contains zero. Keeping the incumbent is a *cost* decision, not a measured win — and it says nothing about the method in the regime its authors validated. |
+| **C · our implementation failed** | We built the part the authors do not release. The method may be fine; our version of it is not. |
+
+| capability | tests | kind | outcome |
+|---|---|---|---|
+| the DMTA loop itself | 4 targets, 97 programmes | — | **passed** — 2.37× base rate, 77/97 won |
+| censored values | OSM, 68 → 118 compounds | — | **kept**, for the stated reason only |
+| docking (smina) | 3 structures + ensemble + DUD-E + LIT-PCBA | **A** | rejected ×4. Sections 4–6 and 15. Agrees with the LIT-PCBA authors' own finding, and sections 4–6 re-confirmed a negative the docking literature had already established |
+| RMT correlation cleaning | 2 modes, 24 programmes | **A/C** | rejected — −0.173 median ρ, a large effect. But we used it as a *predictor*, and the paper is about cleaning a covariance matrix. Its actual claim is untested here (section 8) |
+| predicted pharmacophore maps | potency, DUD-E, LIT-PCBA | **C** | rejected ×3 — PostEra release the field generator, not the scorer. The scorer is ours, so three agreeing benchmarks reject *our* screening half (section 10) |
+| Chemprop (D-MPNN) | 18 programmes, 175–884 compounds each | **B** | **not a rejection** — median gap −0.026 against a between-programme spread of 0.135. Section 16 tests this properly. Run outside the data regime its authors validated |
+| de novo generation (BRICS) | smoke test | — | incomplete, parked |
+
+**Seven capabilities examined. Two kept. One real rejection with independent support, two
+rejections that are partly about what we built rather than what was published, one tie we
+had been calling a rejection. Three of our own published claims corrected — four, counting
+that label.**
 
 The thing that keeps earning its place is not a model. It is the habit of converting every
 ratio back into a count of molecules, and every gap into a confidence interval, before
-believing it.
+believing it — and then applying that same standard to the conclusions we have already
+written down.
+
+---
+
+# 16. Applying section 15's standard to our own model rejections
+
+Section 15 bootstrapped a paired difference and found docking's apparent edge over
+molecular size contained zero. The model comparisons in sections 7 and 8 never got that
+treatment — they were decided on a median gap and a 2 s.e. screen, then summarised in the
+tally with the word **rejected**. That word claims more than a median supports, so the
+same test was applied to them.
+
+```bash
+python3 model_benchmark.py 24 forest,chemprop,rmt-project --save /tmp/model_scores.json
+python3 model_paired_test.py /tmp/model_scores.json
+```
+
+24 programmes from 4 targets, identical scaffold splits, 616 s. The **programme** is the
+unit of resampling, not the compound: a model that wins on large programmes and loses on
+small ones has not won, and resampling compounds would hide that.
+
+| | forest | chemprop | rmt-project |
+|---|---|---|---|
+| median ρ | **0.562** | 0.425 | 0.389 |
+| median MAE | **0.401** | 0.435 | 0.447 |
+| programmes won | 12 | 8 | 4 |
+| total fit seconds | **10.6** | 195.3 | 409.9 |
+
+## The two verdicts disagree, and that is the finding
+
+| | mean paired Δρ | 95% CI (bootstrap) | Wilcoxon | sign test | verdict |
+|---|---|---|---|---|---|
+| **rmt-project** | −0.121 | **[−0.214, −0.032]** | P = 0.006 | 5/24, P = 0.007 | **a real rejection** |
+| **chemprop** | −0.036 | **[−0.097, +0.024]** | P = 0.281 | 9/24, P = 0.308 | **a tie** |
+
+**The RMT rejection survives.** All three tests agree, the interval excludes zero, and the
+effect is large. Section 8's conclusion stands as measured — with the separate caveat,
+already in section 8, that we used RMT as a *predictor* while the paper is about cleaning
+a covariance matrix.
+
+**The Chemprop rejection does not survive.** The interval contains zero. Nine wins out of
+24 is what a coin gives 31% of the time. Section 7's own text said *"no reliable
+difference"* and was right; the **tally's label was wrong**, and the deck repeated it.
+
+## What the interval's width says, which is the part worth keeping
+
+The honest reading is not "the gap is zero". It is:
+
+> The interval runs to **−0.097**. A D-MPNN worse than the forest by up to a tenth of ρ is
+> still consistent with this data — and so is one **better by 0.024**. Twenty-four
+> programmes of 60–884 compounds cannot resolve a difference this size.
+
+So the defensible statement about Chemprop is a **cost** decision, not a measured win:
+
+> No detectable gain, **18× the fit time** (195 s against 10.6 s across 24 programmes), a
+> torch dependency, and two silent bugs found in one afternoon of integrating it. We do
+> not pay for that. **This is not evidence that Chemprop is worse.**
+
+## The sign test, which is what gets quoted
+
+Section 7 reported "11 of 18 programmes". That reads as decisive and is not: **P = 0.48**
+two-sided. A win record discards the size of every difference, and is the weakest of the
+three tests here precisely because it is the easiest to quote. `model_paired_test.py`
+prints it alongside the other two for that reason, and a test pins its values.
+
+## The correction
+
+| | before | after |
+|---|---|---|
+| Chemprop | "rejected" | **no evidence of a difference** — a tie; the forest is kept on cost |
+| RMT | "rejected" | rejected, and now with a CI that excludes zero |
+| the tally | one word, "rejected" | three kinds: failed a fair test / no gain here / our implementation |
+
+**That is the fourth of our own published claims to be corrected**, and the first where the
+error was in a *label* rather than in a number. The number in section 7 was right all
+along; the summary of it was not. A tally is where overclaiming hides, because it is the
+part people read.

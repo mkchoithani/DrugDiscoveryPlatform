@@ -157,18 +157,42 @@ def main():
         print("    -> no. The 2D model still wins easily, so this benchmark cannot")
         print("       settle the question either.")
 
-    better = ((phc["ef_1pct"] or 0) > (size["ef_1pct"] or 0)
-              and phc["bedroc_20"] > size["bedroc_20"])
+    # An enrichment ratio is not evidence until it is converted back into a count of
+    # molecules. This verdict declared the pharmacophore a winner on EF1% 2.60 vs
+    # 0.00, which was two actives against zero out of 153 compounds -- something that
+    # happens 18% of the time with no method at all. Significance is now part of the
+    # verdict rather than a caveat printed above it.
+    from math import comb
+
+    def tail_probability(ef: float | None) -> tuple[int, float]:
+        """Actives implied by an enrichment, and P(at least that many) by chance."""
+        if not ef:
+            return 0, 1.0
+        found = int(round(ef * k1 * labels.mean()))
+        if found <= 0:
+            return 0, 1.0
+        total, act = len(test), int(labels.sum())
+        p = sum(comb(act, i) * comb(total - act, k1 - i) / comb(total, k1)
+                for i in range(found, min(act, k1) + 1))
+        return found, float(p)
+
     print()
-    if better:
-        print(f"  The pharmacophore beats molecular size on early enrichment "
-              f"(EF1% {phc['ef_1pct']} vs {size['ef_1pct']}).")
-        print("  On an unbiased benchmark that is a real result; revisit it as a")
-        print("  screening filter.")
+    print(f"  {'method':<24}{'EF 1%':>7}{'actives found':>15}{'P by chance':>14}")
+    for r in rows:
+        found, p = tail_probability(r["ef_1pct"])
+        print(f"  {r['method']:<24}{(r['ef_1pct'] or 0):>7.2f}{found:>15}{p:>14.4f}")
+
+    phc_found, phc_p = tail_probability(phc["ef_1pct"])
+    print()
+    if phc_p < 0.05 and (phc["ef_1pct"] or 0) > (size["ef_1pct"] or 0):
+        print(f"  The pharmacophore finds {phc_found} actives in the top 1% "
+              f"(p = {phc_p:.3f}), beating")
+        print(f"  molecular size. On an unbiased benchmark that is a real result.")
     else:
-        print(f"  The pharmacophore does NOT beat molecular size "
-              f"(EF1% {phc['ef_1pct']} vs {size['ef_1pct']}, "
-              f"BEDROC {phc['bedroc_20']:.3f} vs {size['bedroc_20']:.3f}).")
+        print(f"  The pharmacophore finds {phc_found} actives in the top 1%, which "
+              f"chance alone")
+        print(f"  produces {phc_p:.0%} of the time. Its EF1% of "
+              f"{phc['ef_1pct']} is not evidence of anything.")
         print("  Three benchmarks now agree, and this one is unbiased by construction.")
 
 

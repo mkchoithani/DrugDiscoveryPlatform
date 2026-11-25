@@ -1116,3 +1116,109 @@ test had not been run. It has now, on the standard benchmark for the purpose, an
 answer is the same: **neither 3D method beats a cheap descriptor here.** The remaining
 honest caveat is narrower — a cleaner benchmark (LIT-PCBA) might rank them differently,
 and our implementation of the screening half is our own.
+
+---
+
+# 13. LIT-PCBA: the unbiased benchmark, and the strongest version of the test
+
+Section 12 ran the hit-finding test on DUD-E and then had to discount its own result:
+a 2D fingerprint model reached **AUC 0.996** and the arithmetic ceiling on enrichment,
+because DUD-E's actives are literature compounds while its decoys are untested ZINC
+molecules. A fingerprint tells those two populations apart without knowing anything
+about the target, so that benchmark cannot compare a structure-based method with a
+ligand-based one.
+
+LIT-PCBA (Tran-Nguyen, Jacquemard and Rognan, *J. Chem. Inf. Model.* 2020, 60, 4263)
+exists for exactly that reason. Actives **and** inactives come from the same PubChem
+confirmatory bioassays, so an inactive is a *measured* inactive. Its splits are
+AVE-unbiased, removing the train/validation analogue redundancy. And the class balance
+is real.
+
+**Target: MAPK1 (ERK2).** A kinase, so closest to the EGFR work. Pharmacophore field
+from **4QTE** — ERK2 with VTX-11e at 1.5 Å. LIT-PCBA designates no single reference
+structure, so that choice is a judgement call and is recorded as one.
+
+```
+train: 231 actives / 46,317 inactives
+test:   77 actives / 15,250 inactives     test hit rate 0.50%
+```
+
+Inactives were deliberately **not** capped. The 0.5% hit rate is the point — DUD-E's
+10% is twenty times easier — and capping would have inflated every enrichment figure.
+
+```bash
+python3 litpcba_benchmark.py /tmp/litpcba/ave/MAPK1 /tmp/phc4/out_4qte/phc4_field.npz
+```
+
+| method | AUC | EF 1% | EF 5% | BEDROC |
+|---|---|---|---|---|
+| pharmacophore (4QTE field) | 0.550 | 2.60 | 1.04 | 0.082 |
+| heavy atom count | **0.581** | 0.00 | 0.26 | 0.041 |
+| QED | 0.391 | 0.00 | 0.26 | 0.021 |
+| 2D forest | **0.673** | **6.50** | **4.16** | **0.202** |
+
+## First result: the unbiasing works
+
+| | DUD-E | LIT-PCBA |
+|---|---|---|
+| 2D forest AUC | 0.996 | **0.673** |
+| 2D forest EF 1% | 10.23 (the ceiling) | **6.50** |
+
+The fingerprint model's near-perfect separation collapses. **So this benchmark can
+adjudicate between a structure-based method and a ligand-based one**, and DUD-E could
+not. That is the most useful thing in this section, and it retires the open caveat left
+at the end of section 12.
+
+## Second result: count the molecules before believing anything
+
+The benchmark's automated verdict said the pharmacophore "beats molecular size on early
+enrichment (EF1% 2.6 vs 0.0) — on an unbiased benchmark that is a real result". It is
+not, and the script printed the reason immediately above its own conclusion: the top 1%
+is 153 compounds, holding **0.77 actives at chance**.
+
+Converting every enrichment into molecules, with a hypergeometric tail probability:
+
+| method | EF 1% | actives in the top 153 | P(≥ that) by chance |
+|---|---|---|---|
+| pharmacophore | 2.60 | **2** | **0.18** |
+| heavy atom count | 0.00 | 0 | 1.00 |
+| 2D forest | 6.50 | **5** | **0.001** |
+
+**The pharmacophore found two actives where chance gives 0.8.** That happens 18% of the
+time with no method at all. Its apparent 2× advantage over molecular size on BEDROC
+(0.082 against 0.041) is the same two compounds seen from another angle, and it *loses*
+to molecular size on AUC (0.550 against 0.581).
+
+The 2D forest's five actives, at p = 0.001, is real signal.
+
+## Verdict
+
+**The rejection stands, and this is now the strongest form of the test.** On the one
+benchmark that is unbiased by construction, judged on the metric a screen actually uses:
+
+- the pharmacophore field is **statistically indistinguishable from chance** (p = 0.18);
+- the plain 2D random forest finds **2.5× its early enrichment** and is significant;
+- and the structure-based method still loses to a fingerprint, on a benchmark
+  specifically designed not to favour fingerprints.
+
+Three benchmarks have now been run against this method — potency ranking in a
+congeneric series, DUD-E, and LIT-PCBA — and all three say the same thing.
+
+## What I got wrong twice, in the same direction
+
+Section 12's verdict function compared AUC alone and declared the pharmacophore a
+winner. I fixed it to require early enrichment. **This section's verdict function then
+declared it a winner again**, because it compared enrichment without asking how many
+molecules the enrichment was made of.
+
+Both errors ran in the direction I had reason to want: I wrote the "we tested it on the
+wrong task" caveat myself, so a result vindicating it was the one I was looking for.
+A verdict function is not a safeguard against that — it encodes the same expectations as
+the person who wrote it. **What caught it both times was converting a ratio back into a
+count of actual molecules**, which is now printed next to every enrichment figure this
+benchmark reports.
+
+The honest remaining caveat is narrow: one target, 77 actives, and our own
+implementation of the screening half. A method that is chance-level on MAPK1 might not
+be on a target whose pocket is more distinctive. But nothing here supports building
+Phase B.

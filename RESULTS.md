@@ -631,3 +631,49 @@ chemotypes — strong within the series, useless beyond it.
 
 A tidy ChEMBL paper yields a far higher usable fraction than a real programme does.
 Any intake pipeline has to survive that gap, and say what it discarded.
+
+---
+
+# 7. Chemprop: tested, and not adopted
+
+A D-MPNN graph neural network, wrapped behind the same interface as the random forest
+and given exactly the same scaffold splits of exactly the same compounds, so the only
+difference between the two columns is the model.
+
+```bash
+python3 model_benchmark.py 18
+```
+
+**18 programmes across 4 targets, 179 seconds:**
+
+| | random forest | chemprop |
+|---|---|---|
+| median ρ | **0.510** | 0.425 |
+| median MAE | **0.403** | 0.438 |
+| programmes ranked better | 11/18 | 7/18 (39%) |
+| typical fit time | **0.7 s** | 29 s |
+
+Median paired difference in ρ: **−0.026**, with a spread of 0.135 across programmes.
+
+> **Verdict: no reliable difference.** The gap is far smaller than the variation between
+> programmes. Keep the random forest — it trains in seconds, needs no GPU, and the
+> neural network buys nothing measurable on this data.
+
+Stated fairly to Chemprop: it ran with default hyperparameters, 40 epochs, no validation
+split and no early stopping, while the forest had its uncertainty cross-validated. A
+tuned D-MPNN would likely close the 0.026 gap. What the result rules out is a *large*
+win — nobody is leaving 0.2 of ρ on the table by keeping the simpler model.
+
+**Two bugs found while building this**, both of the silent kind:
+
+1. **Segfault, exit 139, no traceback.** PyTorch and RDKit each ship an OpenMP runtime
+   and loading both crashes on macOS. Fixed with three environment variables that must
+   be set before torch is imported.
+2. **Predictions came back one row short.** Chemprop's dataloader drops a trailing batch
+   of one sample, because batch norm cannot normalise a single row — so a 129-compound
+   test set returned 128 predictions and the arrays silently disagreed. `drop_last` is
+   now forced off, the batch size is nudged when a remainder of one would occur, and a
+   length check raises rather than returning a short answer.
+
+The second one is the more instructive: had the shapes happened to broadcast, it would
+have scored the wrong compounds against the wrong truths and reported a number.

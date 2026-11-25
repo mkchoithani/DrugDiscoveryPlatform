@@ -29,3 +29,6 @@ ui/reports/
 
 # macOS
 .DS_Store
+
+# Downloaded papers (copyright stays with the publishers)
+papers/

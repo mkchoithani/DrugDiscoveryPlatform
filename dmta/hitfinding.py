@@ -123,6 +123,21 @@ def bedroc(scores: np.ndarray, labels: np.ndarray, alpha: float = 20.0) -> float
     return float(rie * scale + offset)
 
 
+def enrichment_ceiling(labels, fraction: float = 0.01) -> float:
+    """The largest enrichment arithmetically possible at this active rate.
+
+    EF is capped at 1/base_rate: if every compound in the top slice is active, that is
+    all the enrichment there is. At a 26.5% active rate the cap is 3.77, and on a
+    1,021-compound test set the top 1% is ten molecules — so three different methods
+    came back at 3.77, 3.77 and 3.74 and a verdict compared them. The metric had no
+    resolution left. `hit_finding_report` now reports the cap and whether a method is
+    sitting on it.
+    """
+    import numpy as np
+    base = float(np.asarray(labels).astype(bool).mean())
+    return float("inf") if base == 0 else 1.0 / base
+
+
 def hit_finding_report(scores, labels, name: str = "") -> dict:
     """Every metric at once, plus the counts needed to read them."""
     scores = np.asarray(scores, float)
@@ -142,4 +157,10 @@ def hit_finding_report(scores, labels, name: str = "") -> dict:
         "ef_5pct": (round(v, 2) if (v := enrichment_factor(scores, labels, 0.05))
                     is not None else None),
         "bedroc_20": round(bedroc(scores, labels, 20.0), 3),
+        "ef_ceiling": round(enrichment_ceiling(labels, 0.01), 2),
+        # True when EF 1% has run out of headroom, in which case comparing two
+        # methods on it says nothing.
+        "ef_1pct_saturated": bool(
+            (v2 := enrichment_factor(scores, labels, 0.01)) is not None
+            and v2 >= enrichment_ceiling(labels, 0.01) - 0.1),
     }

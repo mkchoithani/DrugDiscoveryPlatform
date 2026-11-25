@@ -75,7 +75,10 @@ def main():
         sys.exit(__doc__)
     directory = Path(sys.argv[1])
     field_path = sys.argv[2]
-    max_inactives = int(sys.argv[3]) if len(sys.argv) > 3 else None
+    max_inactives = (int(sys.argv[3]) if len(sys.argv) > 3
+                     and not sys.argv[3].startswith("-") else None)
+    want_dock = "--dock" in sys.argv
+    dock_pdb = "4QTE"
 
     target = directory.name
     print(f"LIT-PCBA target {target} (AVE-unbiased split)")
@@ -128,6 +131,27 @@ def main():
         for c in train:
             c.measured = None
     rows.append(hit_finding_report(np.asarray(mu, float), labels, "2D forest"))
+
+    if want_dock:
+        from dmta.docking import apply_scores, dock, engine_available
+        from dmta.structure import prepare
+        if not engine_available():
+            print("smina not found — skipping the docking arm\n")
+        else:
+            print(f"docking {len(test)} compounds against {dock_pdb} "
+                  f"(~7s each, so hours)...", flush=True)
+            t0 = time.time()
+            result = dock(test, prepare(dock_pdb), verbose=True)
+            n_applied = apply_scores(test, result)
+            print(f"  docked {n_applied}/{len(test)} in {time.time()-t0:.0f}s")
+            ds = np.array([c.docking_score if c.docking_score is not None else np.nan
+                           for c in test], float)
+            if np.isfinite(ds).sum() >= 50:
+                # lower kcal/mol is a better fit, so negate for higher = better
+                rows.append(hit_finding_report(-ds, labels,
+                                               f"docking (smina, {dock_pdb})"))
+            else:
+                print("  too few compounds docked to report an arm")
 
     header = f"{'method':<30}{'n':>7}{'AUC':>7}{'EF 1%':>8}{'EF 5%':>8}{'BEDROC':>9}"
     print(header); print("-" * len(header))

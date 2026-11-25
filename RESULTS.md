@@ -1222,3 +1222,74 @@ The honest remaining caveat is narrow: one target, 77 actives, and our own
 implementation of the screening half. A method that is chance-level on MAPK1 might not
 be on a target whose pocket is more distinctive. But nothing here supports building
 Phase B.
+
+---
+
+# 14. Docking on the hit-finding test: the first positive signal in this project
+
+Docking was rejected three times on potency ranking — 0.37× on 2RGP, 0.00× on 4HJO and
+on the ensemble (sections 4–5). Section 12 gave the pharmacophore field its fair test on
+DUD-E; this is docking's. 1,021 held-out compounds (decoys capped at 1,500, so 26.5%
+active), smina against 2RGP, **6,884 seconds — 6.8 s per compound**, 6 embed failures
+and 1 dock failure out of 1,021.
+
+| method | AUC | EF 1% | EF 5% | BEDROC |
+|---|---|---|---|---|
+| **docking (smina, 2RGP)** | **0.629** | 3.74 † | 2.42 | **0.606** |
+| heavy atom count | 0.527 | 3.77 † | 2.81 | 0.592 |
+| pharmacophore (2RGP field) | 0.573 | 1.88 | 1.55 | 0.382 |
+| QED | 0.357 | 0.00 | 0.22 | 0.087 |
+| 2D forest *(benchmark artefact)* | 0.994 | 3.77 † | 3.77 | 0.999 |
+
+† **saturated — see below.**
+
+**Docking is the best structure-based method here, and the first one in this project to
+show real signal.** AUC 0.629 against the size baseline's 0.527, and BEDROC 0.606 against
+0.592. It also beats the pharmacophore field on both (0.629/0.606 against 0.573/0.382).
+
+That is a genuine change from sections 4–5. Docking cannot rank potency within a
+congeneric series, and it can tell an EGFR-like molecule from a non-binder at better
+than chance. Those are different jobs and it is competent at one of them.
+
+## The metric that had no resolution left, and the verdict that used it anyway
+
+Enrichment at 1% is capped at 1/base_rate. At a 26.5% active rate the cap is **3.77**,
+and on 1,021 compounds the top 1% is **ten molecules**. So:
+
+| method | EF 1% | actives in the top 10 |
+|---|---|---|
+| heavy atom count | 3.77 | 10.0 |
+| 2D forest | 3.77 | 10.0 |
+| docking | 3.74 | 9.9 |
+
+Three methods pinned at the ceiling. The benchmark's verdict compared docking's 3.74
+against molecular size's 3.77 and printed *"does NOT beat molecular size"* — a comparison
+of 9.9 actives against 10.0, out of 10. Meaningless, and in this case it gave the wrong
+answer.
+
+**That is the third verdict-function error in three sections**, and notably the first in
+the *conservative* direction — the previous two flattered the method I had reason to
+favour. The common cause is the same: a ratio was compared without asking how many
+molecules it stood for. `hit_finding_report` now returns `ef_ceiling` and
+`ef_1pct_saturated`, and the verdict refuses to decide on a saturated column, falling
+back to AUC and BEDROC.
+
+Why the active rate was 26.5% at all: decoys were capped at 1,500 to keep a 6.8 s/compound
+docking run inside a few hours. That cap is what saturated the metric. The uncapped DUD-E
+run in section 12 was 9.78% active and did not saturate.
+
+## This result is on the benchmark we already disqualified
+
+Section 13 established that DUD-E cannot adjudicate structure-based against ligand-based
+methods: its 2D forest reaches AUC 0.994 here, essentially perfect, because its decoys are
+untested ZINC molecules. **So docking's AUC 0.629 is measured on a set whose separability
+is partly artificial**, and it is not yet evidence that docking would help on real
+screening data.
+
+**The decisive test is now running:** the same docking arm on LIT-PCBA MAPK1, where
+inactives are experimentally measured and the AVE unbiasing works (section 13). Inactives
+capped at 2,000 for a 3.71% hit rate — stated because the cap raises the apparent rate,
+and chosen so EF 1% has headroom rather than saturating. At 6.8 s per compound that is
+about four hours for 2,077 compounds. **Until it reports, the honest summary is: docking
+shows its first real signal, on the one benchmark we have already shown cannot be
+trusted for this comparison.**

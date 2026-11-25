@@ -994,3 +994,28 @@ def test_every_cli_script_parses_and_has_an_entrypoint():
         assert '__name__ == "__main__"' in source, (
             f"{path.name} defines main() but never calls it — it will exit 0 "
             "having done nothing")
+
+
+def test_saturated_enrichment_is_flagged():
+    """EF is capped at 1/base_rate; past that the column cannot compare anything.
+
+    On a 26.5%-active test set the cap is 3.77 and the top 1% is ten molecules, so
+    three methods came back at 3.77, 3.77 and 3.74 — ten, ten and 9.9 actives out of
+    ten — and a verdict function compared them.
+    """
+    import numpy as np
+    from dmta.hitfinding import enrichment_ceiling, hit_finding_report
+    labels = np.zeros(1021, bool)
+    labels[:271] = True                               # 26.5% active
+    assert abs(enrichment_ceiling(labels) - 3.77) < 0.01
+
+    perfect = hit_finding_report(np.where(labels, 1.0, 0.0), labels)
+    assert perfect["ef_1pct_saturated"] is True
+    assert perfect["ef_1pct"] <= perfect["ef_ceiling"] + 1e-9
+
+    rare = np.zeros(15327, bool)
+    rare[:77] = True                                  # 0.5% active, lots of headroom
+    assert enrichment_ceiling(rare) > 100
+    modest = hit_finding_report(
+        np.where(rare, 1.0, 0.0) + np.random.default_rng(0).normal(0, 2, len(rare)), rare)
+    assert modest["ef_1pct_saturated"] is False

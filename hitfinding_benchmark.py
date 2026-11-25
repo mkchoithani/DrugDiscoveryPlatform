@@ -174,6 +174,13 @@ def main():
     # version of this verdict compared AUC alone and declared the pharmacophore the
     # winner at 0.580 vs 0.516, while it was losing 1.46 to 6.57 on EF at 1%.
     def better(a, b) -> bool:
+        # If either method has pinned EF 1% to its ceiling, that column carries no
+        # information and BEDROC plus AUC have to decide. Comparing 3.74 against
+        # 3.77 when both mean "ten actives out of ten" is not a comparison.
+        if a.get("ef_1pct_saturated") or b.get("ef_1pct_saturated"):
+            print(f"    (EF 1% is saturated at its ceiling of {a['ef_ceiling']} — "
+                  "judging on AUC and BEDROC instead)")
+            return a["bedroc_20"] > b["bedroc_20"] and a["roc_auc"] > b["roc_auc"]
         return ((a["ef_1pct"] or 0) > (b["ef_1pct"] or 0)
                 and a["bedroc_20"] > b["bedroc_20"])
 

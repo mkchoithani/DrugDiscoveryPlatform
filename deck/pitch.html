@@ -136,13 +136,15 @@
     <p class="quote">Any lab can claim a model works. We hide the answers, let the software
     guess, and compare. <strong>Nothing ships until it beats a known answer.</strong></p>
     <div class="big" style="margin-top:9mm">
-      <div><div class="n">6</div><div class="l">capabilities put through the examination</div></div>
-      <div><div class="n">1</div><div class="l">passed and shipped</div></div>
-      <div class="grey"><div class="n">5</div><div class="l">failed and were deleted</div></div>
+      <div><div class="n">7</div><div class="l">capabilities put through the examination</div></div>
+      <div><div class="n">2</div><div class="l">passed and kept</div></div>
+      <div class="grey"><div class="n">4</div><div class="l">failed and were deleted</div></div>
       <div class="grey"><div class="n">3</div><div class="l">of our own published claims corrected</div></div>
     </div>
-    <div class="note">Five rejections is the product working. Each one is a feature a
-    competitor could have shipped on a plausible-looking number.</div>
+    <div class="note">Four rejections is the product working &mdash; each one a feature a
+    competitor could have shipped on a plausible-looking number. The two that passed are the
+    loop itself and the handling of compounds too weak to measure. One more is parked
+    unfinished rather than counted as either.</div>
   </div>
   <div class="foot"><span>Hara Vara</span><span>4</span></div>
 </section>
@@ -210,14 +212,14 @@
     <table>
       <tr><th>Capability</th><th>Published promise</th><th>What we measured</th><th>Outcome</th></tr>
       <tr><td><strong>Docking</strong> (3D pose scoring)</td><td>Physics ranks unseen chemotypes</td>
-          <td>No potency signal, on 3 structures and an ensemble</td><td><span class="tag fail">rejected ×3</span></td></tr>
+          <td>No signal on potency (3 structures + ensemble) or on hit finding</td><td><span class="tag fail">rejected ×4</span></td></tr>
       <tr><td><strong>Chemprop</strong> (graph neural net)</td><td>Field-standard strong baseline</td>
           <td>Lost to a random forest on 7 of 11 programmes</td><td><span class="tag fail">rejected</span></td></tr>
       <tr><td><strong>RMT</strong> correlation cleaning</td><td>PNAS 2019 — denoise the covariance</td>
           <td>ρ 0.389 against the forest's 0.562</td><td><span class="tag fail">rejected</span></td></tr>
       <tr><td><strong>Pharmacophore maps</strong></td><td>Cheaper and less biased than docking</td>
           <td>1.24× enrichment — beaten by <em>counting heavy atoms</em> (1.37×)</td>
-          <td><span class="tag fail">rejected</span></td></tr>
+          <td><span class="tag fail">rejected ×3</span></td></tr>
       <tr><td><strong>De novo generation</strong></td><td>Design molecules from fragments</td>
           <td>46 molecules in 210 s, none lead-like</td><td><span class="tag fail">parked</span></td></tr>
     </table>
@@ -254,26 +256,36 @@
   <div class="foot"><span>Hara Vara</span><span>8</span></div>
 </section>
 
-<!-- 9 IN FLIGHT -->
+<!-- 9 THE DECISIVE TEST -->
 <section class="slide">
-  <p class="kicker">Running right now</p>
-  <h2>The decisive test for docking <span class="q">— on a benchmark that cannot be gamed</span></h2>
+  <p class="kicker">The decisive test &middot; resolved 25 November</p>
+  <h2>Docking looked like our first win. It was the benchmark, not the physics.</h2>
   <div class="body">
-    <p class="lede">On DUD-E, docking showed its first real signal (AUC 0.629 against molecular
-    size at 0.527). But DUD-E's "inactives" were never measured in a lab — a plain 2D model
-    scores AUC 0.994 there, which measures the benchmark's bias, not the model.</p>
+    <p class="lede">On DUD-E, docking beat molecular size (AUC 0.629 vs 0.527). But
+    DUD-E&rsquo;s &ldquo;inactives&rdquo; were never tested in a lab, so we re-ran it on
+    LIT-PCBA, where every inactive is a measured one.</p>
     <table>
-      <tr><th>Benchmark</th><th>Where the inactives come from</th><th>Can it adjudicate 3D vs 2D?</th></tr>
-      <tr class="dead"><td>DUD-E</td><td>Untested catalogue molecules, property-matched</td><td>No — we measured the bias</td></tr>
-      <tr class="hero"><td>LIT-PCBA (MAPK1)</td><td>Experimentally measured as inactive, de-biased</td><td>Yes — and the de-biasing demonstrably works</td></tr>
+      <tr><th>Method</th><th class="num">AUC</th><th class="num">EF 1%</th>
+          <th class="num">Actives in top 21</th><th class="num">P by chance</th></tr>
+      <tr class="hero"><td>2D forest (fingerprints)</td><td class="num">0.723</td>
+          <td class="num">6.42</td><td class="num">5</td><td class="num">0.0008</td></tr>
+      <tr><td>docking (smina, 4QTE)</td><td class="num">0.622</td><td class="num">1.28</td>
+          <td class="num">1</td><td class="num">0.55</td></tr>
+      <tr class="dead"><td>heavy atom count</td><td class="num">0.577</td><td class="num">0.00</td>
+          <td class="num">0</td><td class="num">1.00</td></tr>
+      <tr class="dead"><td>pharmacophore field</td><td class="num">0.551</td><td class="num">2.57</td>
+          <td class="num">2</td><td class="num">0.18</td></tr>
     </table>
-    <p style="margin-top:7mm"><span class="tag run">in flight</span> &nbsp;2,077 compounds ·
-    0.50 % native hit rate · docking against the 4QTE structure. On LIT-PCBA the pharmacophore
-    field found 2 actives in its top 153 — <code>p = 0.18</code>, indistinguishable from chance.
-    The 2D forest found 5 — <code>p = 0.001</code>, real.</p>
-    <div class="note">If docking passes here it becomes <strong>the first capability in the
-    project to survive its examination</strong>, and we will say plainly that we rejected it
-    for the wrong job rather than on the wrong evidence.</div>
+    <p style="margin-top:5mm"><strong>Docking&rsquo;s early enrichment is one molecule</strong>
+    &mdash; what random selection produces 55% of the time. Its AUC edge over counting atoms is
+    <strong>+0.045, 95% CI [&minus;0.013, +0.099]</strong>: the interval contains zero. On DUD-E
+    that gap was +0.102, so about half of it was decoy bias and the rest is noise. Docking is
+    also <em>significantly worse</em> than the plain 2D model.</p>
+    <div class="note" style="margin-top:5mm"><strong>Where this test is weak, stated
+    plainly:</strong> with 77 actives the interval cannot exclude a gap as large as
+    DUD-E&rsquo;s. &ldquo;Not significant&rdquo; is not &ldquo;shown to be zero&rdquo;. The
+    verdict rests on the enrichment being a flat chance result rather than a near miss &mdash;
+    and on this being the fourth independent test docking has failed.</div>
   </div>
   <div class="foot"><span>Hara Vara</span><span>9</span></div>
 </section>

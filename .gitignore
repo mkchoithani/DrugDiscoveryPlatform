@@ -32,3 +32,4 @@ ui/reports/
 
 # Downloaded papers (copyright stays with the publishers)
 papers/
+data/rmt_screen_cache/

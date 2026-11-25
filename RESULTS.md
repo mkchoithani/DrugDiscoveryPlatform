@@ -1411,15 +1411,21 @@ own code.
 | the DMTA loop itself | 4 targets, 97 programmes | — | **passed** — 2.37× base rate, 77/97 won |
 | censored values | OSM, 68 → 118 compounds | — | **kept**, for the stated reason only |
 | docking (smina) | 3 structures + ensemble + DUD-E + LIT-PCBA | **A** | rejected ×4. Sections 4–6 and 15. Agrees with the LIT-PCBA authors' own finding, and sections 4–6 re-confirmed a negative the docking literature had already established |
-| RMT correlation cleaning | 2 modes, 24 programmes | **A/C** | rejected — −0.173 median ρ, a large effect. But we used it as a *predictor*, and the paper is about cleaning a covariance matrix. Its actual claim is untested here (section 8) |
+| RMT, as our potency predictor | 2 modes, 24 programmes | **A** | rejected — −0.173 median ρ (section 8), and the decision survives relocation: on the authors' own task it still loses to the forest, −0.036 AUC, CI [−0.053, −0.014] (section 17) |
+| RMT cleaning, the paper's own claim | 9 LIT-PCBA targets, cleaned vs uncleaned | **B** | **not a rejection** — paired CI [−0.028, +0.006] contains zero. No detectable gain over a cross-validated ridge on the raw matrix, and no evidence against the method either (section 17) |
 | predicted pharmacophore maps | potency, DUD-E, LIT-PCBA | **C** | rejected ×3 — PostEra release the field generator, not the scorer. The scorer is ours, so three agreeing benchmarks reject *our* screening half (section 10) |
 | Chemprop (D-MPNN) | 24 programmes + a 250→7,173 learning curve | **B** | **not a rejection** — paired CI [−0.097, +0.024] contains zero. The gap plateaus at −0.034 from n≈2,000 upward, so the forest is level with it at every size this data reaches, at 96× less compute (section 16) |
 | de novo generation (BRICS) | smoke test | — | incomplete, parked |
 
-**Seven capabilities examined. Two kept. One real rejection with independent support, two
-rejections that are partly about what we built rather than what was published, one tie we
-had been calling a rejection. Four of our own published claims corrected, and four
-verdict-function errors found and pinned with tests.**
+**Seven capabilities examined, across eight claims. Two kept. Two real rejections with
+independent support, one rejection that is about what we built rather than what was
+published, two ties — one we had been calling a rejection, one we had never tested at all.
+Five of our own published claims corrected, and five verdict-function errors found and
+pinned with tests.**
+
+Section 17 is the one that cuts both ways and is worth reading as a pair: the rejection of
+RMT *as our model* got stronger, and the rejection of *the paper's claim* dissolved into a
+tie — because until section 17 we had never tested the paper's claim at all.
 
 The thing that keeps earning its place is not a model. It is the habit of converting every
 ratio back into a count of molecules, and every gap into a confidence interval, before
@@ -1565,3 +1571,143 @@ slope that disagrees with it, and distinguishes *plateaued* from *flat from the 
 to favour, one was conservative, and this one invented a future crossover. The only thing
 that has ever caught them is refusing to read a summary number without asking what it is a
 summary *of* — molecules, in sections 13–15; a two-regime curve, here.
+
+---
+
+# 17. RMT on the task its authors actually validated
+
+Section 8 rejected `dmta/rmt_model.py` on 24 ChEMBL programmes: forest median ρ 0.562
+against RMT's 0.389. The effect was large and properly measured, and the rejection stood
+for a day. Then [PAPERS.md](PAPERS.md) recorded, against our own result:
+
+> We used it as a predictor. The paper is about cleaning a covariance matrix, and never
+> claimed to beat a random forest at QSAR. The effect we measured is large, so rejecting
+> it *as our predictor* is safe — but **its actual contribution is untested here.**
+
+Lee *et al.*, PNAS 2019, **116**, 3373 clean the correlations between chemical features
+computed from known actives *and* known inactives, and use the cleaned matrix to pick
+candidates out of a library. Their reported success is a virtual screen — prospectively,
+four confirmed M1 muscarinic agonists. Not a Spearman correlation against continuous
+potency. **Section 8 graded the method on a task it was never offered for.**
+
+This section runs the task it was offered for. `rmt_screen_test.py`, 15 LIT-PCBA targets,
+9 with enough actives in the validation split to measure anything.
+
+## What is compared, and why it is not "RMT versus our forest"
+
+A method can be worth less than the incumbent and still have a real contribution. Those
+are different questions, and section 16 is the record of what conflating them costs. So
+the headline here is:
+
+> **rmt-cleaned versus rmt-uncleaned**
+
+Both arms take the identical path through `RmtModel` — same features, same
+standardisation, same generalised-least-squares solve, same prediction. The only
+difference is whether the Marchenko–Pastur clipping happens. Whatever separates them **is
+the cleaning**, and nothing else. `clean=False` is an experimental control, not a second
+method, and a test pins it to be exactly `(C_raw + λI)⁻¹` computed densely — because if
+the control is quietly a second cleaned model, the whole comparison measures nothing.
+
+The control needs that ridge to exist at all: with p = 2,060 features and n in the
+hundreds, the raw correlation matrix is singular. That ridge is precisely the ad-hoc
+regularisation RMT is proposed as a principled replacement for, so choosing it badly would
+hand the comparison to RMT by default. **It is chosen by cross-validation on the training
+split only**, per target, and the chosen value is printed.
+
+## The regime is the paper's, and the benchmark is unbiased
+
+LIT-PCBA's inactives are experimentally measured, not untested catalogue molecules, and
+the splits are AVE-unbiased — so a 2D fingerprint cannot win by recognising ZINC the way
+it did on DUD-E (section 12). Hit rates run 1.2%–7.6% before the inactive cap. Features
+outnumber training actives by 5× to 30× on eight of the nine targets. That is the
+"features ≫ molecules" regime the paper addresses.
+
+## AUC per target
+
+| target | n | actives | rmt **clip** | rmt **project** | **uncleaned** | ols | forest | size |
+|---|---|---|---|---|---|---|---|---|
+| ALDH1 | 3343 | 1343 | 0.679 | 0.683 | 0.708 | 0.671 | **0.737** | 0.572 |
+| ESR1_ant | 819 | 25 | 0.493 | 0.529 | 0.493 | 0.497 | 0.490 | **0.557** |
+| FEN1 | 2091 | 91 | 0.833 | 0.893 | 0.918 | 0.625 | **0.924** | 0.499 |
+| GBA | 2041 | 41 | 0.615 | 0.785 | 0.757 | 0.566 | **0.807** | 0.639 |
+| KAT2A | 2048 | 48 | 0.596 | 0.670 | 0.677 | 0.539 | **0.703** | 0.521 |
+| MAPK1 | 2077 | 77 | 0.645 | 0.649 | 0.694 | 0.603 | **0.723** | 0.577 |
+| MTORC1 | 2024 | 24 | 0.558 | 0.624 | 0.644 | 0.507 | **0.683** | 0.524 |
+| PKM2 | 2136 | 136 | 0.619 | 0.705 | 0.707 | 0.510 | **0.753** | 0.514 |
+| VDR | 2165 | 165 | 0.731 | 0.773 | **0.815** | 0.618 | 0.809 | 0.382 |
+
+**Plain least squares collapses exactly as the paper says it does** — 0.510 on PKM2, 0.507
+on MTORC1, barely above chance where both RMT variants and the ridged control reach
+0.62–0.71. *The paper's diagnosis of the problem is correct.* The question is only whether
+its specific remedy beats the obvious one.
+
+## The four verdicts
+
+Bootstrapped over **targets**, not compounds: a method that wins on one huge target and
+loses on eight small ones has not won, and resampling compounds would let ALDH1's 3,343
+carry the result.
+
+| comparison | mean ΔAUC | 95% CI | wins | Wilcoxon | verdict |
+|---|---|---|---|---|---|
+| cleaning (**clip**) vs uncleaned | −0.071 | [−0.096, −0.046] | 1/9 | 0.008 | loses |
+| **cleaning (project) vs uncleaned** | **−0.011** | **[−0.028, +0.006]** | 2/9 | 0.300 | **TIE** |
+| RMT (clip) vs forest | −0.096 | [−0.129, −0.062] | 1/9 | 0.009 | loses |
+| **RMT (project) vs forest** | **−0.036** | **[−0.053, −0.014]** | 1/9 | 0.039 | **loses** |
+
+## What this licenses us to say
+
+**The paper is not refuted.** In its better mode the cleaning is a **tie** against a
+cross-validated ridge on the raw matrix. An effect up to 0.028 of AUC, either way, is
+still inside that interval — a statement about what nine targets can resolve, not a
+measurement of no effect. By section 16's taxonomy this is **kind B**, the same verdict
+Chemprop got, for the same reason.
+
+**Section 8's decision survives relocation.** Moved onto the task the authors validated,
+in the regime they addressed, against experimentally measured inactives, RMT still loses
+to the random forest: −0.036, CI [−0.053, −0.014], one win in nine. The hole PAPERS.md
+flagged is closed, and it closed in favour of the original call — not because we had
+graded it on the wrong task, but on its own task.
+
+So the tally entry splits in two, and neither half is the one we had:
+
+| claim | kind | verdict |
+|---|---|---|
+| RMT cleaning beats no cleaning | **B** | tie — CI [−0.028, +0.006] |
+| RMT beats our forest, as a screen | **A** | loses — CI [−0.053, −0.014] |
+
+## My verdict function got this wrong too — the fifth time
+
+I pre-specified `clip` as the headline arm, on a theoretical argument: a screen is a
+discriminant, clipping inverts the cleaned matrix literally, therefore clipping is the
+discriminant solve. The argument is not obviously wrong. It is simply false here:
+
+> **`project` beat `clip` on 9 of 9 targets**, mean +0.060, CI [+0.031, +0.094].
+
+And the choice decides the verdict. Against the control, `clip` gives **−0.071 (loses)**
+and `project` gives **−0.011 (a tie)**. Had I reported only my pre-specified arm — the
+orthodox thing to do — I would have published a rejection of the paper's central claim on
+the strength of a modelling choice I had reasoned my way into and never checked. **In the
+direction that flatters our own earlier decision**, which is the direction these errors
+have gone four times out of five.
+
+The fix is not "pre-specify better". It is that **the pre-specification must be reported
+alongside the result, not instead of it**. `rmt_screen_test.py` now carries both modes
+against both rivals and prints all four, labelled *pre-specified* and *better*. A reader
+can see that the prediction failed and judge the result anyway.
+
+## Where this test is weak, stated plainly
+
+- **Two targets may be handicapped.** On ESR1_ant and KAT2A the control's ridge ran to the
+  top of the search grid (1000). There the control may be limited by the grid rather than
+  genuinely beaten. The script warns by name rather than leaving it to be noticed.
+- **ESR1_ant is noise.** Every arm sits at 0.49–0.56 and heavy-atom count "wins" it. It is
+  kept in the tally because dropping the targets where nothing works is how a method gets
+  a reputation it has not earned.
+- **The top-1% counts are inflated.** The inactive cap keeps every active but samples the
+  inactives, so ALDH1's hit rate reaches 40% and a "top 1%" there is barely a screen. AUC
+  is a rank statistic over active/inactive pairs and is unaffected by the class ratio,
+  which is why every verdict above is read off AUC and the counts are context only.
+- **Nine targets is few.** The tie interval is ±0.028 wide. A real cleaning effect of
+  0.02 AUC would not have been detected here.
+- **Cost is not the argument.** All arms fit in 1.3–1.4 s. Unlike Chemprop, RMT was not
+  kept out on compute; it was kept out on the measurement.

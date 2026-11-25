@@ -637,6 +637,129 @@ def test_rmt_handles_a_constant_feature_block():
     assert len(mu) == 3 and all(s > 0 for s in sigma)
 
 
+def test_the_uncleaned_control_is_really_the_raw_ridged_inverse():
+    """The RMT screening test is only meaningful if its control is honest.
+
+    `rmt_screen_test.py` attributes every difference between clean=True and
+    clean=False to the Marchenko-Pastur clipping. That attribution holds only if
+    clean=False solves against (C_raw + lambda I), the raw sample correlation
+    matrix with a ridge -- not against some partly-cleaned matrix wearing the
+    control's name. One wrong noise level would make the control a second
+    cleaned model and the whole comparison would measure nothing.
+
+    So this computes the ridged inverse densely, the slow and obvious way, and
+    requires the model's weights to match it.
+    """
+    import numpy as np
+    from dmta.rmt_model import RmtModel
+
+    rng = np.random.default_rng(7)
+    n, p, lam = 30, 120, 0.4                      # p > n, so C_raw is singular
+    X = rng.normal(size=(n, p))
+    y = X @ rng.normal(size=p) * 0.1 + rng.normal(size=n)
+
+    model = RmtModel(mode="clip", clean=False, shrinkage=lam).fit_matrix_only(X, y)
+
+    Z = (X - X.mean(axis=0)) / X.std(axis=0)
+    C = Z.T @ Z / n
+    b = Z.T @ (y - y.mean()) / n
+    expected = np.linalg.solve(C + lam * np.eye(p), b)
+
+    assert np.allclose(model.weights_, expected, atol=1e-8), (
+        "clean=False is not solving against the raw ridged correlation matrix, so "
+        "it is not a control for the cleaning")
+
+
+def test_the_uncleaned_control_refuses_to_run_without_a_ridge():
+    """At shrinkage 0 the control is singular; it must say so, not return noise.
+
+    With p > n the raw correlation matrix has exact zero eigenvalues. Inverting
+    it without a ridge gives weights of order 1e16 and predictions that look like
+    a catastrophic negative result for the *uncleaned* arm -- which would hand
+    the comparison to RMT for a reason that has nothing to do with chemistry.
+    """
+    import numpy as np
+    import pytest
+    from dmta.rmt_model import RmtModel
+
+    rng = np.random.default_rng(1)
+    X = rng.normal(size=(20, 90))
+    y = rng.normal(size=20)
+    with pytest.raises(ValueError, match="singular"):
+        RmtModel(mode="clip", clean=False).fit_matrix_only(X, y)
+
+
+def test_cleaning_still_happens_when_it_is_asked_for():
+    """The control must not be the default. clean=True clips; clean=False does not."""
+    import numpy as np
+    from dmta.rmt_model import RmtModel
+
+    rng = np.random.default_rng(3)
+    n, p = 40, 200
+    direction = rng.normal(size=p)
+    scores = rng.normal(size=n)
+    X = np.outer(scores, direction) + rng.normal(size=(n, p))   # one real factor
+    y = scores + rng.normal(size=n) * 0.1
+
+    cleaned = RmtModel(mode="clip", clean=True).fit_matrix_only(X, y)
+    raw = RmtModel(mode="clip", clean=False, shrinkage=1.0).fit_matrix_only(X, y)
+
+    assert cleaned.edge > 1.0, "a Marchenko-Pastur edge of zero means no clipping"
+    assert 0 < cleaned.n_signal < min(n, p), (
+        "clipping should keep some directions and discard most of them")
+    assert raw.edge == 0.0, "the control must not compute a clipping edge at all"
+    assert raw.n_signal == min(n, p), (
+        f"the control must keep every one of the {min(n, p)} directions the data "
+        f"spans, but kept {raw.n_signal}")
+
+
+def test_the_screening_verdict_will_not_call_a_tie_a_rejection():
+    """RESULTS 17's real numbers, pinned against the function that reads them.
+
+    The tie and the loss in that section differ by the modelling mode alone, and
+    the whole point of the section is that reporting only the pre-specified mode
+    would have turned a tie into a published rejection. So both are pinned here:
+    the arm that loses must say LOSES, the arm that ties must say TIE and must
+    volunteer how large an undetected effect would still fit.
+    """
+    import numpy as np
+    from rmt_screen_test import read_verdict
+
+    # project minus uncleaned, the nine targets of section 17
+    tie = np.array([-0.025, +0.036, -0.025, +0.028, -0.007,
+                    -0.045, -0.020, -0.002, -0.042])
+    lines = " ".join(read_verdict(tie, -0.028, +0.006, 0.300, 0.180, "cleaning"))
+    assert "TIE, NOT A REJECTION" in lines
+    assert "0.028" in lines, "a tie must state the effect it could not rule out"
+    assert "LOSES" not in lines and "WINS" not in lines
+
+    # clip minus uncleaned, same targets: the interval clears zero
+    loss = np.array([-0.029, +0.001, -0.085, -0.142, -0.082,
+                     -0.049, -0.086, -0.088, -0.084])
+    lines = " ".join(read_verdict(loss, -0.096, -0.046, 0.008, 0.039, "cleaning"))
+    assert "LOSES" in lines and "TIE" not in lines
+
+    # and the mirror image must not be read as a loss
+    lines = " ".join(read_verdict(-loss, +0.046, +0.096, 0.008, 0.039, "cleaning"))
+    assert "WINS" in lines and "LOSES" not in lines
+
+
+def test_a_tie_interval_that_barely_contains_zero_is_still_a_tie():
+    """No fudge factor. An interval touching zero does not get rounded to a win.
+
+    The temptation in section 17 was real: [-0.028, +0.006] is nearly all on one
+    side, and "basically a loss" was an available sentence. It is not available to
+    the function.
+    """
+    import numpy as np
+    from rmt_screen_test import read_verdict
+
+    lines = " ".join(read_verdict(np.array([-0.05, -0.04, -0.03, -0.02, +0.001]),
+                                  -0.049, +0.0005, 0.06, 0.20, "cleaning"))
+    assert "TIE, NOT A REJECTION" in lines
+    assert "0.049" in lines
+
+
 # --- DEL Simulator landscape (Digital Discovery 2026) -------------------------
 
 def _write_del_pair(tmp_path, rows, affinities):

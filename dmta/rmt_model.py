@@ -75,7 +75,7 @@ class RmtModel:
     """Generalised least squares against a spectrum-cleaned correlation matrix."""
 
     def __init__(self, mode: str = "project", shrinkage: float = 0.0, seed: int = 0,
-                 max_components: int | None = None):
+                 max_components: int | None = None, clean: bool = True):
         # Two defensible readings of the paper, both measured in model_benchmark.py:
         #
         #   "clip"    invert the cleaned correlation matrix literally. This is
@@ -90,6 +90,20 @@ class RmtModel:
         if mode not in ("clip", "project"):
             raise ValueError("mode must be 'clip' or 'project'")
         self.mode = mode
+        # clean=False is the EXPERIMENTAL CONTROL, not a second method. It takes the
+        # identical path -- same standardisation, same solve, same predictive variance
+        # -- and only skips the Marchenko-Pastur clipping, keeping every non-zero
+        # eigenvalue as if it were signal. That isolates the paper's contribution:
+        # any difference between clean=True and clean=False is the cleaning and
+        # nothing else.
+        #
+        # With p > n the raw correlation matrix is singular, so the control cannot
+        # run at shrinkage 0 -- its smallest kept eigenvalues are ~1e-16 and the
+        # weights explode. It therefore needs a ridge, which is exactly the ad-hoc
+        # regularisation RMT is proposed as a principled replacement for. The
+        # comparison is only fair if that ridge is chosen properly, so the benchmark
+        # picks it by cross-validation on the training split and never by hand.
+        self.clean = clean
         # shrinkage is a ridge added to the cleaned matrix; 0 means pure RMT,
         # and the benchmark reports whether it is needed at all.
         self.shrinkage = shrinkage
@@ -127,6 +141,10 @@ class RmtModel:
         # and would divide by zero on standardisation.
         spread = X.std(axis=0)
         self.keep_ = spread > 1e-9
+        if not self.clean and self.shrinkage <= 0:
+            raise ValueError(
+                "the uncleaned control is singular when p > n: it needs a positive "
+                "shrinkage, chosen by cross-validation on the training split")
         if not self.keep_.any():
             self.mean_ = np.zeros(1); self.scale_ = np.ones(1)
             self.keep_ = np.zeros(X.shape[1], dtype=bool); self.keep_[0] = True
@@ -149,7 +167,23 @@ class RmtModel:
         # the p x p matrix when p >> n, and it gives the eigenvectors directly.
         _, s, Vt = np.linalg.svd(Z, full_matrices=False)
         eigvals = (s ** 2) / n
-        signal, noise_level, edge = clip_spectrum(eigvals, n, p)
+        if self.clean:
+            signal, noise_level, edge = clip_spectrum(eigvals, n, p)
+        else:
+            # No clipping: every direction the data spans is treated as signal.
+            # The raw correlation matrix has eigenvalue exactly 0 on the p - n
+            # directions the data does not span, so the ridged inverse weights those
+            # by 1/shrinkage -- NOT by 1/(1 + shrinkage), which is what a noise level
+            # of 1 would give. Setting the level to 0 makes the floor exactly the
+            # ridge, so this really is (C_raw + shrinkage I)^-1 and not a cleaned
+            # matrix wearing the control's name.
+            signal, edge = eigvals, 0.0
+            noise_level = 0.0
+            if self.shrinkage <= 0:
+                raise ValueError(
+                    "the uncleaned control is singular when p > n: it needs a "
+                    "positive shrinkage, chosen by cross-validation on the "
+                    "training split")
         if self.max_components is not None:
             signal = signal[: self.max_components]
         k = len(signal)
@@ -204,6 +238,20 @@ class RmtModel:
         self._fit_matrix(X, y)
         return self
 
+    def fit_matrix_only(self, X: np.ndarray, y: np.ndarray) -> "RmtModel":
+        """Fit from feature and value arrays that are already built.
+
+        `fit` re-featurises every compound from SMILES. A screening benchmark
+        scores the same tens of thousands of molecules with several arms, so it
+        featurises once and hands the matrix to each; this is that entry point.
+        No cross-validation here -- the caller holds out its own split.
+        """
+        X = np.asarray(X, dtype=float)
+        y = np.asarray(y, dtype=float)
+        self.n_train = len(y)
+        self._fit_matrix(X, y)
+        return self
+
     def _cross_validate(self, X: np.ndarray, y: np.ndarray, folds: int = 5) -> None:
         """Out-of-fold estimate, and the sigma calibration factor."""
         folds = min(folds, max(2, len(y) // 4))
@@ -211,7 +259,7 @@ class RmtModel:
         preds, sigmas = np.zeros_like(y), np.ones_like(y)
         for train_idx, test_idx in kf.split(X):
             fold = RmtModel(mode=self.mode, shrinkage=self.shrinkage, seed=self.seed,
-                            max_components=self.max_components)
+                            max_components=self.max_components, clean=self.clean)
             fold._fit_matrix(X[train_idx], y[train_idx])
             mu, sigma = fold._predict_matrix(X[test_idx])
             preds[test_idx], sigmas[test_idx] = mu, sigma
@@ -262,7 +310,8 @@ class RmtModel:
 
     def report(self) -> dict:
         return {
-            "model": f"rmt-linear-{self.mode}", "n_train": self.n_train,
+            "model": f"rmt-linear-{self.mode}" + ("" if self.clean else "-uncleaned"),
+            "n_train": self.n_train,
             "n_features": self.n_features, "n_signal_eigenvalues": self.n_signal,
             "mp_edge": round(self.edge, 3), "noise_level": round(self.noise_level, 4),
             "cv_r2": self.cv_r2, "cv_mae": self.cv_mae,

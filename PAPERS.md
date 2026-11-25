@@ -214,6 +214,13 @@ bet from a bigger network, and it comes with interpretability the forest lacks.
 programmes: forest median ρ **0.562**, best RMT variant **0.389**, worse by 0.098 (just
 outside twice its standard error) and 27× slower to fit. It does win outright on 5 of 24.
 
+**Re-tested on the authors' own task, 2026-11-25** ([RESULTS.md](RESULTS.md) 17). The
+screen, not the regression: 9 LIT-PCBA targets, cleaned against an identical pipeline with
+the clipping switched off and a cross-validated ridge in its place. The cleaning is a
+**tie** (CI [−0.028, +0.006]) — the paper's claim is neither confirmed nor refuted here.
+RMT still loses to the forest on that task (−0.036, CI [−0.053, −0.014]), so the decision
+below stands, now for a reason that does not rest on having tested the wrong thing.
+
 **Verdict: the better-motivated next model was still worse.** Two things are worth keeping
 from the exercise. The method is ambiguous in a way the paper does not resolve — inverting
 the cleaned correlation matrix *whitens*, damping the signal directions RMT just found,
@@ -228,8 +235,11 @@ see [RESULTS.md](RESULTS.md) 8.
 1. **Boltz-2 recommendation corrected** in ROADMAP.md, citing paper 1.
 2. **Pharmacophore screening replaces "try another docking structure"** as the route to
    structure-based signal, since docking has already failed three times here.
-3. **Paper 6 was implemented and rejected.** It was the better-motivated model than
-   Chemprop, and it still lost to the random forest. The model is not the bottleneck.
+3. **Paper 6 was implemented and rejected — then the rejection was audited and split.**
+   It lost to the random forest as a predictor, and still loses as a screen, which is the
+   task its authors validated. But the *paper's* claim — that cleaning beats not cleaning
+   — came out a tie once it was finally tested on its own terms. The model is not the
+   bottleneck; neither is the paper wrong.
 4. **Paper 2 was implemented as an auditor and falsified our own headline number.** The
    2.75× does not survive an independently authored landscape, and the reason is that our
    simulator is too easy. This is the most useful thing in the whole review.
@@ -254,13 +264,20 @@ the *paper* is different:
 | | what we may say about the paper |
 |---|---|
 | **Docking** | Its claim was tested fairly and did not hold here. The LIT-PCBA authors report the same, and the potency-ranking runs re-confirmed a negative the field already had. The strongest of the four. |
-| **RMT (paper 6)** | We used it as a predictor. The paper is about cleaning a covariance matrix, and never claimed to beat a random forest at QSAR. The effect we measured is large, so rejecting it *as our predictor* is safe — but **its actual contribution is untested here.** |
+| **RMT (paper 6)** | **Tested on its own task as of 2026-11-25, and not contradicted.** This entry used to end "its actual contribution is untested here"; [RESULTS.md](RESULTS.md) 17 ran the virtual screen the authors validated, on 9 LIT-PCBA targets, against an identical pipeline with the clipping switched off. The cleaning came out a **tie**: CI [−0.028, +0.006]. Separately, RMT still loses to our forest *on that same task* (−0.036, CI [−0.053, −0.014]), so rejecting it as our model is now safe for a reason that no longer depends on the task mismatch. The paper's diagnosis is also directly confirmed: plain least squares collapses to 0.51 AUC where the cleaned and ridged models reach 0.62–0.71. |
 | **Pharmacophore maps (paper 1)** | The authors release the field generator; the screening half is ours. Three benchmarks reject **our scorer**, which is weaker evidence against the paper than it reads as. |
 | **Chemprop** | **Not a rejection at all.** Median gap −0.026 against a between-programme spread of 0.135, and run on 175–884 compounds per programme — the small-data regime, where fingerprints are documented to be competitive, not the regime its authors validated. |
 
 None of the four papers is contradicted by our results. Three of them say *"no gain on our
 data, for our use"*, which is the useful claim to act on and a weaker one than the word
 "rejected" carries.
+
+**The RMT row is the one that changed, and it is worth saying how.** It is the only entry
+here that was written as an admission — that our test did not address the paper's claim —
+and the only one since acted on. Running the right test moved it in both directions at
+once: the paper came out *less* refuted, and our own decision to drop the model came out
+*better* supported. Those were always two claims, and until section 17 we had measured
+only one of them.
 
 **The pattern across all three implementations is the same.** Each one was adopted or
 rejected on a measurement, not on what its authors reported — and in two of the three the

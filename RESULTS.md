@@ -1293,3 +1293,120 @@ and chosen so EF 1% has headroom rather than saturating. At 6.8 s per compound t
 about four hours for 2,077 compounds. **Until it reports, the honest summary is: docking
 shows its first real signal, on the one benchmark we have already shown cannot be
 trusted for this comparison.**
+
+**It has since reported, and it went against this section — see section 15.** The signal
+did not survive: docking's edge over molecular size falls to +0.045 AUC with a confidence
+interval that crosses zero, and its early enrichment is one molecule in the top 21.
+
+---
+
+# 15. The decisive test: docking's signal did not survive an unbiased benchmark
+
+Section 14 ended on an open question. Docking had beaten molecular size on DUD-E
+(AUC 0.629 against 0.527) — the first positive structure-based result in the project — but
+DUD-E was already disqualified for exactly this comparison. The same docking arm has now
+run on LIT-PCBA MAPK1, where every inactive was experimentally measured.
+
+```bash
+python3 -u litpcba_benchmark.py /tmp/litpcba/ave/MAPK1 \
+        /tmp/phc4/out_4qte/phc4_field.npz 2000 --dock
+```
+
+2,077 test compounds (77 actives, inactives capped at 2,000 for a 3.71% hit rate),
+docked against 4QTE. 2,066 of 2,077 produced a pose, in 87 minutes at 2.8 s/compound.
+
+| method | n | AUC | EF 1% | EF 5% | BEDROC |
+|---|---|---|---|---|---|
+| pharmacophore (MAPK1 field) | 2075 | 0.551 | 2.57 | 1.04 | 0.105 |
+| heavy atom count | 2077 | 0.577 | 0.00 | 0.26 | 0.053 |
+| QED | 2077 | 0.384 | 1.28 | 0.26 | 0.031 |
+| **2D forest** | 2077 | **0.723** | **6.42** | **3.11** | **0.219** |
+| docking (smina, 4QTE) | 2066 | 0.622 | 1.28 | 0.52 | 0.100 |
+
+## Count the molecules first
+
+The discipline that caught all three verdict errors, applied before reading anything into
+the table. The top 1% is **21 compounds**; at chance it holds 0.8 of the 77 actives.
+
+| method | EF 1% | actives in the top 21 | P by chance |
+|---|---|---|---|
+| pharmacophore | 2.57 | 2 | 0.18 |
+| heavy atom count | 0.00 | 0 | 1.00 |
+| QED | 1.28 | 1 | 0.55 |
+| **2D forest** | **6.42** | **5** | **0.0008** |
+| **docking** | 1.28 | **1** | **0.55** |
+
+**Docking's early enrichment is one molecule.** On the metric that decides whether a
+screen is worth running — what you find in the fraction you can afford to test — docking
+is indistinguishable from drawing at random. Only the 2D forest clears chance.
+
+## The AUC gap, tested properly
+
+AUC 0.622 against molecular size's 0.577 still looks like a win. It is not one. Because
+every method ranks the *same* compounds, the two AUCs are correlated, and an unpaired
+error bar would overstate the uncertainty of their difference. The pose cache makes the
+docking scores free to re-read, so the difference was bootstrapped directly:
+
+```bash
+python3 litpcba_paired_auc.py /tmp/litpcba/ave/MAPK1 4QTE 2000
+```
+
+4,000 resamples, actives and inactives resampled separately to hold the class ratio.
+
+| comparison | mean ΔAUC | 95% CI | P(Δ ≤ 0) |
+|---|---|---|---|
+| docking − size | **+0.045** | **[−0.013, +0.099]** | 0.063 |
+| docking − 2D forest | −0.100 | [−0.174, −0.023] | 0.995 |
+| 2D forest − size | +0.145 | [+0.070, +0.217] | <0.001 |
+
+**Docking's advantage over counting heavy atoms includes zero.** The forest's advantage
+over both does not. And docking is *significantly worse* than the 2D fingerprint model it
+was supposed to beat on the one task where 3D should win.
+
+On DUD-E the docking-minus-size gap was +0.102. Here it is +0.045 with a CI that crosses
+zero. **Roughly half the DUD-E gap was decoy bias**, and what remains cannot be
+distinguished from noise.
+
+## Where this test is weak, stated plainly
+
+The confidence interval's upper bound is +0.099. With 77 actives this test **cannot
+exclude** a true gap as large as the one DUD-E showed. "Not significant" is not "shown to
+be zero", and I am not claiming it is. Two things keep the verdict where it is anyway:
+
+- The enrichment result is not a near miss. One active in the top 21 is what chance
+  produces 55% of the time. A method with real early signal does not look like that.
+- This is now the **fourth** independent test docking has failed here — three on potency
+  ranking (sections 4–6) and one on hit finding. The DUD-E arm is the only positive, and
+  the benchmark it ran on was disqualified before the arm existed.
+
+A fifth test worth running one day: more actives (a second LIT-PCBA target, or MAPK1
+uncapped at 61,567 inactives), and GNINA's CNN rescoring rather than smina's empirical
+function. Neither is likely to overturn an enrichment of one molecule.
+
+## What this costs the previous section
+
+Section 14's conclusion — *"docking shows its first real signal"* — stands as written,
+because it was explicitly conditioned on a benchmark it also called untrustworthy. But the
+condition has now resolved against it. The correct summary of docking in this project:
+
+> **Docking failed potency ranking on three structures and an ensemble. On hit finding it
+> beat molecular size on a benchmark whose decoys were never tested, and failed to beat it
+> on a benchmark whose inactives were. It is not in the product.**
+
+## The running tally
+
+| capability | tests | outcome |
+|---|---|---|
+| the DMTA loop itself | 4 targets, 97 programmes | **passed** — 2.37× base rate, 77/97 won |
+| docking (smina) | 3 structures + ensemble + DUD-E + LIT-PCBA | rejected ×4 |
+| Chemprop (D-MPNN) | 11 programmes | rejected |
+| RMT correlation cleaning | 2 modes, 18 programmes | rejected |
+| predicted pharmacophore maps | potency, DUD-E, LIT-PCBA | rejected ×3 |
+| censored values | OSM, 68 → 118 compounds | **kept**, for the stated reason only |
+| de novo generation (BRICS) | smoke test | incomplete, parked |
+
+**Six capabilities examined. Two kept. Three of our own published claims corrected.**
+
+The thing that keeps earning its place is not a model. It is the habit of converting every
+ratio back into a count of molecules, and every gap into a confidence interval, before
+believing it.

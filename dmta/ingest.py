@@ -19,7 +19,7 @@ from statistics import median
 
 from rdkit import Chem
 
-from .chem import descriptors, inchikey
+from .chem import alerts, descriptors, inchikey
 from .chembl import murcko, standardize
 from .library import Compound
 
@@ -33,6 +33,11 @@ DATE_COLUMNS = ("date", "year", "created", "synthesised", "synthesized", "regist
                 "document_year", "test_date", "assay_date")
 
 CENSORED = re.compile(r"^\s*[<>~≤≥]")
+# A censored result carries an operator and a bound, both of which are information.
+# "~" is approximate rather than censored — a stated value with poor precision — so
+# it is kept as an ordinary measurement rather than given a direction.
+CENSOR_OPERATOR = re.compile(r"^\s*(>=|<=|≥|≤|>|<)\s*(.+)$")
+_OPERATOR_CANON = {"≥": ">=", "≤": "<=", ">": ">", "<": "<", ">=": ">=", "<=": "<="}
 LOG_UNITS = ("pic50", "pchembl", "pchembl_value", "pki", "pkd", "pec50")
 NANOMOLAR = ("ic50", "ic50_nm", "ki", "ki_nm", "kd", "kd_nm", "ec50", "ec50_nm", "potency",
              "activity", "value", "result")
@@ -51,6 +56,9 @@ class IngestReport:
     value_range: tuple | None = None
     date_range: tuple | None = None
     scaffolds: int = 0
+    censored: int = 0
+    censored_left: int = 0        # too weak to measure
+    censored_right: int = 0       # too potent to measure
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
@@ -132,6 +140,7 @@ def load_csv(path: str | Path, smiles_column: str | None = None,
     report.units = units or detect_units(val_col, raw_numbers)
 
     dropped: dict[str, int] = defaultdict(int)
+    censored_rows: list[tuple] = []
     measurements: dict[str, list[float]] = defaultdict(list)
     dates: dict[str, list[int]] = defaultdict(list)
     kept: dict[str, dict] = {}
@@ -141,8 +150,32 @@ def load_csv(path: str | Path, smiles_column: str | None = None,
         if not raw_value:
             dropped["no result recorded"] += 1
             continue
+        operator_match = CENSOR_OPERATOR.match(raw_value)
+        if operator_match:
+            # Kept, not dropped. "IC50 > 10 uM" is not missing data: it says this
+            # compound is definitely weak, which is the most confident statement the
+            # assay made about it. See dmta/censored.py for the direction flip.
+            operator = _OPERATOR_CANON[operator_match.group(1)]
+            try:
+                number = float(re.sub(r"[^\d.eE+-]", "", operator_match.group(2)))
+            except ValueError:
+                dropped["censored but the bound is not a number"] += 1
+                continue
+            bound = _to_plog(number, report.units)
+            if bound is None or not math.isfinite(bound):
+                dropped["censored bound could not be converted"] += 1
+                continue
+            # Separate reason from the one above: a censored row can fail on its
+            # structure rather than its number, and a report that conflates the two
+            # cannot tell the user which column to fix.
+            smiles = standardize((r.get(smi_col) or "").strip())
+            if smiles is None:
+                dropped["censored structure unreadable or too small"] += 1
+                continue
+            censored_rows.append((smiles, operator, bound, r))
+            continue
         if CENSORED.match(raw_value):
-            dropped["censored value (>, <, ~)"] += 1
+            dropped["censored value with no readable bound"] += 1
             continue
         try:
             number = float(re.sub(r"[^\d.eE+-]", "", raw_value))
@@ -209,6 +242,44 @@ def load_csv(path: str | Path, smiles_column: str | None = None,
         if seen_ids[c.id] > 1:
             c.id = f"{c.id}#{seen_ids[c.id]}"
 
+    # Censored compounds are attached with their bound and direction, and are NOT
+    # mixed into `compounds`: a caller that knows nothing about censoring must not
+    # silently treat a bound as a measurement. `censored_compounds(report)` is how a
+    # caller opts in.
+    from .censored import censoring_on_p_scale
+    in_log = report.units == "log"
+    observed_keys = {c.inchikey for c in compounds}
+    censored: list[Compound] = []
+    seen_censored: set[str] = set()
+    for smiles, operator, bound, row in censored_rows:
+        key = inchikey(smiles)
+        if key in observed_keys or key in seen_censored:
+            continue              # a real measurement beats a bound for the same molecule
+        seen_censored.add(key)
+        try:
+            record = censoring_on_p_scale(operator, bound, reported_in_log_units=in_log)
+        except ValueError:
+            dropped["censored with an unrecognised operator"] += 1
+            continue
+        try:
+            desc = descriptors(smiles)
+        except Exception:
+            dropped["censored structure unreadable"] += 1
+            continue
+        c = Compound(
+            id=f"CENS-{len(censored):05d}", smiles=smiles, inchikey=key,
+            scaffold_id=murcko(smiles), intermediate_key=key, intermediate_smiles=smiles,
+            route=[], desc=desc, alerts=alerts(smiles), overall_yield=1.0,
+            route_confidence=None, cost=0.0, lead_days=0,
+        )
+        c.censoring = record
+        c.truth = None            # there is no true value; that is the whole point
+        censored.append(c)
+    report.censored = len(censored)
+    report.censored_left = sum(1 for c in censored if c.censoring.direction == "left")
+    report.censored_right = len(censored) - report.censored_left
+    report._censored_compounds = censored
+
     report.compounds = len(compounds)
     report.dropped = dict(sorted(dropped.items(), key=lambda kv: -kv[1]))
     values = [c.truth for c in compounds]
@@ -229,9 +300,24 @@ def load_csv(path: str | Path, smiles_column: str | None = None,
         report.warnings.append(
             f"Values read as {report.units} and converted to a p-scale "
             f"(p = -log10[molar]). Pass --units if that is wrong.")
+    if report.censored:
+        report.warnings.append(
+            f"{report.censored} result(s) are censored "
+            f"({report.censored_left} too weak to measure, {report.censored_right} "
+            "too potent). They are kept with their bound rather than discarded; a "
+            "model that ignores them is trained on a biased sample.")
     spread = report.value_range[1] - report.value_range[0]
     if spread < 1.5:
         report.warnings.append(
             f"Potency spans only {spread:.1f} log units. With so little variation there "
             "may be nothing for a model to learn.")
     return compounds, report
+
+
+def censored_compounds(report: IngestReport) -> list[Compound]:
+    """The censored rows from a load, each carrying `.censoring` (bound, direction).
+
+    Separate from the returned compounds on purpose: these have no `truth`, so a
+    caller that mixed them in unknowingly would be inventing measurements.
+    """
+    return list(getattr(report, "_censored_compounds", []))

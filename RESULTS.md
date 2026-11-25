@@ -944,3 +944,91 @@ Four attempts to beat a random forest on Morgan fingerprints have now failed, th
 them methods that are more sophisticated by any reasonable measure. That is worth stating
 as a finding rather than a series of disappointments: **on this task, at this data scale,
 the simple model is hard to beat, and the remaining value is not in the model.**
+
+---
+
+# 11. Compounds too weak to measure: kept, and worth keeping — but not for the reason expected
+
+A potency reported as `> 10 µM` is not missing data. It is a measurement: this compound
+is definitely bad. `dmta/ingest.py` discarded every one of them, which threw away the
+most confident statement the assay made and biased the training set towards actives.
+
+This is not a corner case. In the Open Source Malaria file, **50 of 123 compounds** are
+reported as `> X`. Ingest now keeps them:
+
+```
+sample_data/osm_series.csv:   68 observed, 50 censored (50 too weak, 0 too potent)
+sample_data/acme_egfr_programme.csv: 436 observed, 28 censored
+```
+
+Open Source Malaria goes from **68 usable compounds to 118**.
+
+## The direction trap, which gets its own test
+
+| as reported | means | on the p-scale |
+|---|---|---|
+| `IC50 > 10 µM` | weaker than 10 µM | pIC50 **<** 5.0 — left-censored |
+| `IC50 < 1 nM` | more potent than 1 nM | pIC50 **>** 9.0 — right-censored |
+| `pIC50 > 8` | already log | pIC50 **>** 8 — right-censored, **no flip** |
+
+pIC50 = −log10(molar) *decreases* as concentration rises, so the inequality flips —
+except when the column is already on a log scale, where it does not. Reading `IC50 > 10
+µM` as "potent" would invert the dataset silently, so `censoring_on_p_scale` is the one
+place that decision is made and all four cases are a test.
+
+## Does using them actually improve the model?
+
+Known-answer test: real programmes where every potency *is* known, with the weakest 40%
+of each training set artificially censored — roughly Open Source Malaria's real rate.
+Four handlings on identical scaffold splits, scored against held-out true values.
+
+```bash
+python3 censored_benchmark.py 12 0.4
+```
+
+| arm | median ρ | **mean ρ** | worst | 10th pct | programmes with ρ < 0.3 |
+|---|---|---|---|---|---|
+| oracle (true values) | 0.581 | **0.511** | −0.070 | 0.286 | 2 |
+| drop (previous behaviour) | **0.553** | 0.420 | −0.143 | **−0.053** | 4 |
+| bound (naive substitution) | 0.515 | 0.462 | −0.127 | 0.126 | 3 |
+| censored EM | 0.508 | **0.472** | −0.132 | **0.253** | 3 |
+
+**The median says dropping is fine. The median is the wrong statistic here.** Paired
+against dropping, programme by programme, the median difference is −0.004 with twice its
+standard error at 0.093 — no reliable difference, and that is what the benchmark's own
+verdict reported.
+
+But the mean moves by **+0.052** and the tenth percentile moves by **+0.306**. Censored
+compounds do not improve the typical programme. **They prevent the disasters.**
+
+Where dropping does worst, the gap is large:
+
+| paper | drop | censored | oracle |
+|---|---|---|---|
+| CHEMBL3886771 | **−0.143** | 0.253 | 0.367 |
+| CHEMBL3638801 | **0.185** | 0.386 | 0.581 |
+| CHEMBL5728058 | **0.188** | 0.439 | 0.404 |
+
+Those are programmes where discarding 40% of the training data leaves the model with too
+narrow a range of potency to learn anything — in one case anti-correlated with reality.
+The censored compounds restore the range. (This three-programme slice is a post-hoc
+grouping and is shown as illustration; the mean and tenth percentile above are the
+evidence, and neither requires choosing a subgroup after the fact.)
+
+**Verdict: keep them, as insurance rather than as an improvement.** The honest claim is
+not "the model gets better" — on a typical programme it does not. It is "the model stops
+failing badly on the programmes where potent compounds are the minority", which is a
+property worth having and which the median conceals.
+
+## Two further honest notes
+
+**The EM machinery barely beats naive substitution.** Censored EM averages +0.052 ρ over
+dropping; simply asserting the bound as a value averages +0.042. The sophisticated
+treatment buys 0.010 ρ over the crude one. EM is kept because it is principled and costs
+nothing at this scale, but it is not where the value came from — **keeping the compounds
+at all is**.
+
+**Even the oracle only gains +0.091.** Having the *true* values for the weak compounds
+improves the mean by less than 0.1 ρ. So the ceiling on this whole line of work is low,
+and censored EM already captures about 57% of it. That is a useful thing to know before
+anyone invests further in censored-data modelling.

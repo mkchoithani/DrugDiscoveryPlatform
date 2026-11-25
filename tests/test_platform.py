@@ -464,7 +464,8 @@ def test_ingest_handles_a_messy_real_export(tmp_path):
         "A-1,CC(=O)Oc1ccccc1C(=O)O,120,2021-03-01\n"
         "A-2,[Na+].[O-]C(=O)c1ccccc1,45,2021-04-01\n"       # a salt
         "A-3,COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1,8,2021-05-01\n"
-        "A-4,CCO,> 10000,2021-06-01\n"                       # censored
+        "A-4,Cc1ccccc1C(=O)NCc1ccccc1,> 10000,2021-06-01\n"   # censored, kept
+        "A-7,CCO,> 10000,2021-09-01\n"                       # censored, too small
         "A-5,NOTASMILES,15,2021-07-01\n"                     # unparsable
         "A-6,CC(=O)Oc1ccccc1C(=O)O,,2021-08-01\n")           # no result
     compounds, report = load_csv(csv_path)
@@ -473,7 +474,13 @@ def test_ingest_handles_a_messy_real_export(tmp_path):
     assert report.columns["value"] == "IC50 (nM)"
     assert report.columns["date"] == "Date Tested"
     assert report.units == "nM"
-    assert report.dropped.get("censored value (>, <, ~)") == 1
+    # Censored results are KEPT now, with their bound and direction, rather than
+    # dropped — ">10000 nM" says the compound is weak, which is a measurement.
+    assert report.censored == 1
+    assert report.censored_left == 1 and report.censored_right == 0
+    # ...but a censored row whose structure is unusable is still dropped, and the
+    # reason must name the structure rather than the number.
+    assert report.dropped.get("censored structure unreadable or too small") == 1
     assert report.dropped.get("no result recorded") == 1
     assert any("unreadable" in k or "too small" in k for k in report.dropped)
     assert all("." not in c.smiles for c in compounds)       # salts stripped
@@ -795,3 +802,97 @@ def test_bigger_molecule_can_match_more(tmp_path):
     big = score_compound(field, "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
                          n_conformers=2)
     assert big["matched"] >= small["matched"]
+
+
+# --- censored values: compounds too weak to measure ---------------------------
+
+def test_censoring_direction_flips_on_a_concentration_scale():
+    """The trap: "IC50 > 10 uM" means WEAK, which is a LOW pIC50.
+
+    pIC50 = -log10(molar) decreases as concentration rises, so a ">" on a
+    concentration becomes a "<" on the p-scale. On a column that is already log, the
+    inequality stands. Getting this backwards inverts the dataset.
+    """
+    from dmta.censored import censoring_on_p_scale
+    weak = censoring_on_p_scale(">", 5.0, reported_in_log_units=False)
+    assert weak.direction == "left", "IC50 > 10uM was read as potent"
+    potent = censoring_on_p_scale("<", 9.0, reported_in_log_units=False)
+    assert potent.direction == "right"
+    # already on a log scale: no flip
+    assert censoring_on_p_scale(">", 8.0, reported_in_log_units=True).direction == "right"
+    assert censoring_on_p_scale("<", 5.0, reported_in_log_units=True).direction == "left"
+
+
+def test_truncated_expectation_respects_the_bound():
+    """A compound known to be below a bound must never be imputed above it."""
+    import numpy as np
+    from dmta.censored import _truncated_expectation
+    mu = np.array([9.0, 3.0, 4.0, 9.0])          # first is wildly too potent
+    sigma = np.array([0.5, 0.5, 0.5, 0.5])
+    bound = np.array([5.0, 5.0, 7.0, 7.0])
+    left = np.array([True, True, False, False])
+    out = _truncated_expectation(mu, sigma, bound, left)
+    assert out[0] <= 5.0, "left-censored compound imputed above its bound"
+    assert out[1] <= 5.0
+    assert out[2] >= 7.0, "right-censored compound imputed below its bound"
+    assert out[3] >= 7.0
+    # a prediction already inside the region should barely move
+    assert abs(out[1] - 3.0) < 1.0
+
+
+def test_ingest_keeps_censored_rows_with_their_bound(tmp_path):
+    from dmta.ingest import censored_compounds, load_csv
+    body = ("smiles,IC50 (nM)\n"
+            "CC(=O)Oc1ccccc1C(=O)O,120\n"
+            "c1ccc(cc1)S(=O)(=O)Nc1ccccc1,45\n"
+            "COc1ccc(CCN)cc1,>10000\n"
+            "CCCCc1ccc(cc1)C(=O)O,> 50000\n"
+            "Cc1ccccc1C(=O)NCc1ccccc1,<0.5\n")
+    path = tmp_path / "assay.csv"
+    path.write_text(body)
+    compounds, report = load_csv(path)
+    assert report.compounds == 2
+    assert report.censored == 3, f"censored rows were dropped: {report.dropped}"
+    assert report.censored_left == 2 and report.censored_right == 1
+    cens = censored_compounds(report)
+    assert all(c.truth is None for c in cens), "a bound was recorded as a measurement"
+    assert all(getattr(c, "censoring", None) is not None for c in cens)
+    # none of the censored molecules may leak into the observed set
+    assert not ({c.inchikey for c in cens} & {c.inchikey for c in compounds})
+    assert any("censored" in w for w in report.warnings)
+
+
+def test_a_real_measurement_beats_a_bound_for_the_same_molecule(tmp_path):
+    from dmta.ingest import censored_compounds, load_csv
+    path = tmp_path / "dup.csv"
+    path.write_text("smiles,IC50 (nM)\n"
+                    "CC(=O)Oc1ccccc1C(=O)O,120\n"
+                    "CC(=O)Oc1ccccc1C(=O)O,>10000\n"
+                    "c1ccc(cc1)S(=O)(=O)Nc1ccccc1,45\n")
+    compounds, report = load_csv(path)
+    assert report.compounds == 2
+    assert report.censored == 0, "kept a bound for a compound that was measured"
+    assert censored_compounds(report) == []
+
+
+def test_censored_model_pulls_weak_compounds_down():
+    """EM must place censored compounds below their bound, not at the training mean."""
+    from dmta.assay import SimulatedAssay
+    from dmta.censored import CensoredModel, Censoring
+    from dmta.library import enumerate_library
+    lib = enumerate_library()[:220]
+    assay = SimulatedAssay(lib, seed=11)
+    values = assay.measure(lib)
+    bound = sorted(values.values())[int(len(lib) * 0.4)]
+    observed = [c for c in lib if values[c.id] >= bound]
+    censored = [c for c in lib if values[c.id] < bound]
+    for c in observed:
+        c.measured = values[c.id]
+    assert len(observed) > 20 and len(censored) > 10
+
+    model = CensoredModel(iterations=3).fit(
+        observed, censored, [Censoring(bound=bound, direction="left")] * len(censored))
+    assert model.imputations_ is not None
+    assert (model.imputations_ <= bound + 1e-6).all(), "imputed above the bound"
+    r = model.report()
+    assert r["n_censored"] == len(censored) and r["model"] == "censored-em"

@@ -28,7 +28,7 @@ import time
 
 import numpy as np
 
-from dmta.chem import descriptors
+from dmta.chem import descriptors, inchikey
 from dmta.chembl import murcko
 from dmta.hitfinding import hit_finding_report, load_ism
 from dmta.library import Compound
@@ -42,7 +42,9 @@ def as_compound(smiles: str, cid: str, index: int) -> Compound | None:
     except Exception:
         return None
     return Compound(
-        id=f"{cid}-{index}", smiles=smiles, inchikey="", scaffold_id=murcko(smiles),
+        # a real InChIKey, because the docking pose cache is keyed on it
+        id=f"{cid}-{index}", smiles=smiles, inchikey=inchikey(smiles),
+        scaffold_id=murcko(smiles),
         intermediate_key=cid, intermediate_smiles="", route=[], desc=desc,
         alerts=[], overall_yield=1.0, route_confidence=None, cost=0.0, lead_days=0,
     )
@@ -136,20 +138,25 @@ def main():
 
     # --- docking, optional ----------------------------------------------------
     if want_dock:
-        from dmta.docking import dock, engine_path
+        from dmta.docking import apply_scores, dock, engine_available
         from dmta.structure import prepare
-        if engine_path() is None:
+        if not engine_available():
             print("smina not found — skipping the docking arm\n")
         else:
             print("docking the test set against 2RGP (slow)...", flush=True)
             t0 = time.time()
             structure = prepare("2RGP")
-            dock(test, structure)
-            print(f"  docked in {time.time() - t0:.0f}s")
+            result = dock(test, structure, verbose=True)
+            n_applied = apply_scores(test, result)
+            print(f"  docked {n_applied}/{len(test)} in {time.time() - t0:.0f}s")
+            if n_applied == 0:
+                print("  no compound docked — skipping the arm rather than "
+                      "reporting an empty result")
             ds = np.array([c.docking_score if c.docking_score is not None else np.nan
                            for c in test], float)
-            # lower kcal/mol is a better fit, so negate to make "higher = better"
-            rows.append(hit_finding_report(-ds, labels, "docking (smina, 2RGP)"))
+            if np.isfinite(ds).sum() >= 50:
+                # lower kcal/mol is a better fit, so negate to make higher = better
+                rows.append(hit_finding_report(-ds, labels, "docking (smina, 2RGP)"))
 
     header = (f"{'method':<30}{'n':>7}{'AUC':>7}{'EF 1%':>8}{'EF 5%':>8}"
               f"{'BEDROC':>9}")

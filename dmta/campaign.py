@@ -6,7 +6,7 @@ from functools import lru_cache
 
 from .assay import AssayProvider, RetrospectiveAssay, SimulatedAssay
 from .library import Compound, enumerate_library, group_by_intermediate
-from .models import PropertyModel, regression_metrics
+from .models import DescriptorRidge, PropertyModel, choose_model, regression_metrics
 from .scoring import DEFAULT_PROFILE, Objective, profile_as_dicts, score_all
 from .select import diversity_report, select_batch
 from .store import Store
@@ -35,6 +35,9 @@ class CycleSettings:
     assay_noise: float = 0.2
     oracle_seed: int = 42
     hit_threshold: float = 7.5
+    # "auto" measures forest against descriptor-ridge with scaffolds held
+    # out and keeps the better one; "forest" or "ridge" forces the choice.
+    model: str = "auto"
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
@@ -54,7 +57,8 @@ class Campaign:
         if self.library is None:
             self.library = fresh_library()
         self.by_id = {c.id: c for c in self.library}
-        self.model: PropertyModel | None = None
+        self.model: PropertyModel | DescriptorRidge | None = None
+        self.model_choice: dict | None = None
         self.history: list[dict] = []
         if self.assay is None:
             # a library carrying real measurements replays them; otherwise simulate
@@ -205,10 +209,45 @@ class Campaign:
 
     # ------------------------------------------------------------- learn
     def _retrain(self) -> dict:
-        self.model = PropertyModel(seed=0).fit(self.measured)
+        self.model = self._fit_model()
         self.model.apply(self.library)
         score_all(self.library, self.profile)
-        return self.model.report()
+        report = self.model.report()
+        if self.model_choice:
+            report["choice"] = self.model_choice
+        return report
+
+    #: how the endpoint was decided, kept so the UI and the history can show it
+    MIN_FOR_CHOICE = 60
+
+    def _fit_model(self):
+        """Pick the model class once, then refit that class every cycle.
+
+        Section 18 found the forest loses aqueous solubility to a ridge on twelve
+        descriptors, so the class is a property of the endpoint rather than of
+        this platform. It is decided once: the endpoint does not change mid
+        campaign, and choose_model fits both models across five scaffold-grouped
+        folds, which is an order of magnitude more work than one refit. Paying
+        that every cycle would buy an answer that cannot move.
+        """
+        want = (self.settings.model or "auto").lower()
+        if want == "ridge":
+            self.model_choice = self.model_choice or {"chosen": "ridge",
+                                                      "reason": "forced by settings"}
+            return DescriptorRidge(seed=0).fit(self.measured)
+        if want == "forest":
+            self.model_choice = self.model_choice or {"chosen": "forest",
+                                                      "reason": "forced by settings"}
+            return PropertyModel(seed=0).fit(self.measured)
+
+        if self.model_choice is None:
+            if len(self.measured) < self.MIN_FOR_CHOICE:
+                # Too little data to tell them apart. Say so rather than letting a
+                # coin flip on twenty compounds fix the model for the whole run.
+                return PropertyModel(seed=0).fit(self.measured)
+            _, self.model_choice = choose_model(self.measured, seed=0)
+        cls = DescriptorRidge if self.model_choice["chosen"] == "ridge" else PropertyModel
+        return cls(seed=0).fit(self.measured)
 
     # ------------------------------------------------------------ report
     def leaderboard(self, n: int = 20, tested_only: bool = True) -> list[Compound]:

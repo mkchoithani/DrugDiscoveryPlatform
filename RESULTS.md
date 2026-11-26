@@ -1417,7 +1417,7 @@ own code.
 | Chemprop (D-MPNN) | 24 programmes + a 250→7,173 learning curve | **B** | **not a rejection** — paired CI [−0.097, +0.024] contains zero. The gap plateaus at −0.034 from n≈2,000 upward, so the forest is level with it at every size this data reaches, at 96× less compute (section 16) |
 | de novo generation (BRICS) | smoke test | — | incomplete, parked |
 | **the model on logD 7.4** | 4,198 compounds, random + scaffold | — | **passed** — ρ 0.757 on held-out scaffolds against cLogP's 0.219, and the control that strips cLogP out of the model's own features still wins by +0.478 (section 18) |
-| **the model on solubility** | 884 compounds, random + scaffold | **B** | **not a rejection, but we should not ship it** — ties a 12-descriptor ridge on ranking, CI [−0.033, +0.032], and loses to it on error, MAE 1.053 vs 0.731 (section 18) |
+| **the model on solubility** | 884 compounds, random + scaffold | **B** | **the forest is not shipped for it** — ties a 12-descriptor ridge on ranking, CI [−0.033, +0.032], and loses on error, MAE 1.053 vs 0.731. `choose_model` now measures the two with scaffolds held out and ships the ridge, at the cost of a worse σ (section 18) |
 
 **Eight capabilities examined, across ten claims. Three kept — the loop, censored values,
 and now logD. Two real rejections with independent support, one rejection that is about
@@ -2265,3 +2265,80 @@ programme a cycle, and no ledger here will show that.
 So this is an honest number about the thing it measures, and the thing it measures is not
 the whole cost of a decision. The loop still has no prospective result, and compute was
 never what was blocking that.
+
+## Shipping the ridge, and how the first attempt failed
+
+§18 said we should ship the ridge for solubility. Writing `if endpoint == "solubility"`
+would have been a guess dressed as a decision, and the next endpoint would arrive with no
+rule at all — so `choose_model` fits both and keeps whichever measures better, on the
+training split only.
+
+**The first version picked the forest on solubility, five seeds out of five.** It was not
+broken. It cross-validated on *random* folds, and on random folds the forest really is
+better: MAE 0.624 against the ridge's 0.729. The forest's advantage on this endpoint is an
+artefact of random cross-validation — near-identical analogues land on both sides of the
+fold, the forest interpolates between them, and the score describes a regime no production
+model is ever in. §1 makes exactly this argument about reporting the random split as
+generalisation. I had not noticed it applies just as hard to *choosing* a model.
+
+With whole scaffolds held out of each fold, the order reverses and holds:
+
+| endpoint | forest MAE | ridge MAE | picked | seeds agreeing |
+|---|---|---|---|---|
+| solubility | 0.871–0.894 | **0.831–0.842** | **ridge** | 5 / 5 |
+| logD 7.4 | **0.660–0.676** | 0.815–0.819 | **forest** | 5 / 5 |
+| EGFR potency | **0.650** | 0.977 | **forest** | — |
+
+Two details that decide whether this works:
+
+- **It compares MAE, not ρ.** Solubility was a *tie* on ranking and a loss on error, so a
+  selector reading ρ keeps the forest and is wrong in precisely the case it exists for.
+- **The in-training margin is thin.** 0.038 on solubility, against a held-out gap of 0.322.
+  The direction is stable across all five seeds, but the selector is reading a much
+  quieter signal than the one §18 measured, and on a smaller endpoint it could easily be
+  a coin flip. It is a decision procedure, not an oracle.
+
+### What shipping the ridge costs: its uncertainty is worse
+
+The ridge is a linear model with no ensemble to disagree with itself, so σ comes from
+refitting on bootstrap resamples. Measured the same way as everything else — Spearman of
+σ against \|error\| — it is worse than the forest's on both endpoints:
+
+| | forest | ridge |
+|---|---|---|
+| solubility, random | +0.273 | +0.188 |
+| **solubility, scaffold** | +0.157 | **−0.026** |
+| logD, scaffold | +0.324 | +0.168 |
+
+On the endpoint we are shipping it for, the ridge's σ is **−0.026 on held-out scaffolds** —
+no information, very slightly inverted. So the trade is a real one and it should be stated
+in both directions: **better predictions, worse uncertainty.** A solubility campaign gets
+the more accurate model and should run at β = 0 — greedy or expected improvement — because
+every other acquisition function spends part of its batch on a σ that is not ranking
+anything. The recommender already reads β from the worst split, which handles this, but it
+is worth saying out loud rather than leaving it to be discovered.
+
+### How it is wired
+
+`CycleSettings.model` is `"auto"` by default, with `"forest"` and `"ridge"` to force it.
+`"auto"` decides **once**, at 60 measured compounds, and refits that class each cycle
+afterwards: the endpoint does not change mid-campaign, and `choose_model` is an order of
+magnitude more work than one refit, so paying it every cycle would buy an answer that
+cannot move. Below 60 compounds it stays on the forest and records no choice rather than
+fixing the model for a whole run on a coin flip. The decision is in the cycle report.
+
+### A guard one layer down, from another session's audit
+
+Another session auditing a Cell Painting failure found its cause was a scaffold function
+that swallowed an RDKit exception and returned `""` for every compound — so every compound
+became its own group and a scaffold split silently became a split on row order, through a
+full 38-protein experiment. `dmta.chembl.murcko` ends in the same shape:
+`except Exception: return "unknown"`.
+
+Everything in this section now rests on scaffold identity, so I checked rather than took
+it on report: aspirin → `c1ccccc1`, triethylamine → `acyclic`, and 8,978 real EGFR
+compounds give 3,294 distinct scaffolds with **zero** `"unknown"` and a largest group of
+518. §1's and §18's scaffold numbers are sound as published. Two tests now pin it, and a
+third pins the safe failure — if scaffolds ever do collapse to one group, `choose_model`
+reports that it could not compare instead of silently returning whichever model it fitted
+last.

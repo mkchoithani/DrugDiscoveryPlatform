@@ -39,7 +39,7 @@ For comparison work. Plain-language version; the detail for each is further down
 | **F10** | A tamper-proof record of who changed what, that an auditor accepts | Zifo | no | weeks | required before any pilot |
 | **F11** | Plug into the customer's lab software | Zifo | no | — | **don't build.** Partnership surface |
 | **F12** | Put the cost of each answer on the report, next to the accuracy | Immuneel, Cellogen (as strategy) | **true, unstated** | days | planned |
-| **F13** | Prove the molecules never leave the customer's machine | Applied Compute / Palo Alto | **true, unstated** | days | **cheapest item here** |
+| **F13** | Prove the molecules never leave the customer's machine | Applied Compute / Palo Alto | **yes** | days | **DONE.** Cycle runs with all remote addresses blocked; 2 of 26 modules can reach a network, both opt-in (RESULTS §20) |
 | **F14** | Use our examiner to grade *other people's AI claims* | nobody | machinery exists | months | written down, not started |
 | **F15** | The Benchling connector specifically | Benchling (1,300+ labs) | no | — | build when a customer asks |
 
@@ -299,6 +299,13 @@ only opt-in network steps.
 **Cost:** days. **This is the single cheapest credibility gain on any of these lists**, and
 unlike every other item here it needs no new science — only a test and a sentence we are
 already entitled to write.
+
+**Result, 2026-11-26 (RESULTS.md §20): supported, within stated limits.** Three cycles
+completed with every non-loopback address blocked and zero remote hosts contacted; the run
+carries a positive control, so a passing result means "nothing was contacted" rather than
+"the guard is broken". 2 of 26 modules can reach a network, both opt-in fetches, and a
+static test fails if a third appears — verified non-vacuous by adding `import requests` to
+`select.py`.
 
 ### F14. Point the examiner at agent claims
 

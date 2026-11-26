@@ -2049,3 +2049,114 @@ project that came from a named prospective customer rather than from a paper.
 **It does not make the loop work prospectively.** That remains unaddressed, and a
 discovery organisation of Bugworks' size will ask about it sooner than a large pharma
 would, because it has fewer compounds to waste.
+
+---
+
+# 20. The molecules never leave the machine, and now there is a test
+
+Every number in this document is about whether a prediction is any good. This section is
+about a different kind of claim, and it is the first one here that was true before anyone
+checked it.
+
+A customer's compound structures are the asset. Most AI discovery tools send them to
+somebody else's computer. Ours does not — not by design, but because a random forest on
+CPU over a local SQLite store never needed to. Palo Alto Networks paid **$4.5B** in
+November 2026 for a company whose central pitch is substantially that property, so the
+demand for it is not speculative. We had it and had never said so.
+
+The problem with saying so is that "your data never leaves" is unfalsifiable from the
+outside. This section makes it falsifiable.
+
+```bash
+python3 egress_test.py
+```
+
+## The result
+
+```
+Static scan of dmta/ for anything that can reach a network
+  chembl.py      opt-in fetcher    import urllib.request; Request() at line 60
+  structure.py   opt-in fetcher    import urllib.request; Request() at line 65
+
+  2 of 26 modules touch the network, 0 of them unexpectedly.
+
+Controls
+  guard raises on a remote address:      yes
+  loopback and AF_UNIX still permitted:  yes
+
+The cycle itself, with every non-loopback address blocked
+  3 cycles completed in 6.8s
+  compounds made and tested: 36 of 924
+  remote hosts contacted: 0
+```
+
+**The full Design–Make–Test cycle — enumerate, score, select, plan, measure, retrain —
+runs to completion with every non-loopback connection blocked.** Two of twenty-six
+modules can reach a network at all, and both are explicit one-off fetch steps the user
+invokes by name (`chembl-fetch`, `structure`).
+
+## Why a passing run is evidence rather than decoration
+
+A test that cuts the network and passes proves nothing on its own: it passes identically
+if the guard is installed, if the guard is a no-op, and if the cycle silently did no
+work. So the run carries a **positive control** — a deliberate connection to a remote
+address, which must raise. If it does not, the script prints that the result is void and
+exits non-zero before reporting anything else.
+
+The second control is the opposite error. A guard that blocked *all* sockets would sound
+stronger and be useless: it would block loopback, so the customer could not run the UI,
+and `AF_UNIX`, so scikit-learn's own worker processes (`n_jobs=-1`) would not start. It
+would then fail for reasons with nothing to do with data leaving, and whoever hit that
+would switch it off rather than debug it. So the line is drawn at **any connection to a
+non-loopback address over AF_INET or AF_INET6**, which is exactly the set capable of
+carrying a molecule off the machine.
+
+## My first control was wrong, and it failed in the direction that looks like success
+
+The first version of the local-traffic control asserted on `is_local_address("/tmp/x.sock")`
+and reported a failure. The guard was fine. **The control was exercising a code path that
+does not run** — for an `AF_UNIX` socket the guard checks the socket family first and
+returns, so `is_local_address` is never called with a path at all.
+
+It is worth recording because of which way it broke. It reported `CLAIM NOT SUPPORTED`
+against a claim that was true, which is the harmless direction. The same mistake made one
+step later — asserting on a helper the guard *did* call, but with an input the real code
+never produces — would have reported support for a claim nobody had tested. A control has
+to use the thing the customer uses, or it is testing a helper nobody called.
+
+## The test that matters is the static one
+
+The run-time result is a fact about the code as it stands today. One `import requests` in
+`select.py` would quietly end it, and the run-time test would keep passing as long as
+that import was not reached on the happy path.
+
+So `test_only_the_two_opt_in_fetchers_touch_the_network` scans every module in `dmta/`
+for network imports and calls, and fails if the set is anything other than those two. It
+is crude and over-sensitive on purpose — a false positive costs someone thirty seconds of
+reading, a false negative costs the claim. I verified it is not vacuous by adding
+`import requests` to `select.py`; it failed and named the module.
+
+## What this does not show, stated so nobody has to find it
+
+- **One process, run time only.** Anything a dependency does at *import* time happens
+  before the guard is installed and is invisible here.
+- **Python's `socket` module only.** A C extension opening a raw socket would not be seen.
+- **Nothing about disk.** A molecule written to a file that some other process uploads has
+  still left, and no test here would notice.
+- **The two fetchers really do reach the network** when invoked. The claim is about the
+  cycle, not about the whole program.
+- **It is not a security audit.** It is a check that one specific, checkable thing is
+  true, which is the only kind of claim this document makes.
+
+## What it licenses us to say
+
+> The Design–Make–Test cycle completes with every non-loopback connection blocked, in a
+> run that also proves the block works. Two modules of twenty-six can reach a network,
+> both are opt-in fetches of public data, and a test fails if a third appears.
+
+Not "we are secure". Not "your IP is safe". Those are claims about a system, and we have
+tested a process. **100 tests pass.**
+
+This cost an afternoon, needed no new science, and is the only item on the feature list
+in [FEATURES.md](FEATURES.md) that was already true before it was built — which is also
+the reason it had never been claimed. It is worth asking what else is in that category.

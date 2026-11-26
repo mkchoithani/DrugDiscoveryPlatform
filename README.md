@@ -68,6 +68,13 @@ already know — run this **before** trusting a docking score for anything:
 python3 dock_validate.py 2RGP 250 CHEMBL203
 ```
 
+Check that the loop contacts nothing — run the whole cycle with every remote address
+blocked, including a control that proves the block works:
+
+```bash
+python3 egress_test.py
+```
+
 Headless, which is how a computational chemist would really drive it:
 
 ```bash

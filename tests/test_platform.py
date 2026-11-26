@@ -1370,3 +1370,78 @@ def _rank_free_spearman(rank_p: np.ndarray, o: np.ndarray) -> float:
     rank_o = _rank(o)
     sd = rank_p.std() * rank_o.std()
     return float(((rank_p - rank_p.mean()) * (rank_o - rank_o.mean())).mean() / sd)
+
+
+# ------------------------------------------------- F13: the molecules stay here
+
+import socket as _socket
+from pathlib import Path as _Path
+
+from dmta.egress import EgressAttempt, is_local_address, no_egress
+from egress_test import FETCHERS, scan_for_network_use
+
+
+def test_the_guard_fires_on_a_remote_address():
+    """Without this, every other test in this block passes against a no-op guard."""
+    with no_egress():
+        with pytest.raises(EgressAttempt):
+            _socket.create_connection(("93.184.216.34", 80), timeout=1)
+        with pytest.raises(EgressAttempt):
+            _socket.getaddrinfo("example.com", 80)
+
+
+def test_the_guard_leaves_local_traffic_alone():
+    """The claim is "nothing leaves the machine", not "no sockets exist".
+
+    A guard that blocks loopback would stop the customer running the UI, and one
+    that blocks AF_UNIX would stop scikit-learn's own worker processes -- so it
+    would fail for reasons that have nothing to do with data leaving, and whoever
+    hit that would switch the guard off rather than debug it.
+    """
+    with no_egress():
+        listener = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        client = _socket.create_connection(listener.getsockname(), timeout=2)
+        client.close()
+        listener.close()
+        a, b = _socket.socketpair(_socket.AF_UNIX, _socket.SOCK_STREAM)
+        a.close()
+        b.close()
+
+
+def test_an_unparseable_destination_is_treated_as_remote():
+    assert is_local_address("127.0.0.1") and is_local_address("::1")
+    assert is_local_address("localhost") and is_local_address("")
+    assert not is_local_address("example.com")
+    assert not is_local_address("8.8.8.8")
+    assert not is_local_address(None)          # the safe default for "I cannot tell"
+    assert not is_local_address(("tuple",))
+
+
+def test_a_full_cycle_runs_with_every_remote_address_blocked():
+    """The claim itself: Design -> Make -> Test contacts nothing."""
+    with no_egress() as contacted:
+        c = Campaign("t-egress", settings=CycleSettings(batch_size=8, oracle_seed=11))
+        s0 = c.run_cycle()
+        s1 = c.run_cycle()
+    assert contacted == []
+    assert s1["tested_total"] == 16 and s0["cycle"] == 0
+
+
+def test_only_the_two_opt_in_fetchers_touch_the_network():
+    """This is the test that keeps the claim true after today.
+
+    The cycle not contacting anything is a fact about the code as it stands; one
+    `import requests` in select.py would quietly end it, and the run-time test above
+    would still pass as long as that import was not reached on the happy path. So
+    the scan is static and over-sensitive on purpose: a new network-capable module
+    has to be added to FETCHERS deliberately, by someone who reads why.
+    """
+    found = set(scan_for_network_use(_Path("dmta")))
+    assert found == FETCHERS, (
+        f"network use changed: unexpected {sorted(found - FETCHERS)}, "
+        f"gone {sorted(FETCHERS - found)}. If this is deliberate and the module is an "
+        f"opt-in fetch the user invokes by name, add it to FETCHERS in egress_test.py "
+        f"and say so in RESULTS.md section 20."
+    )

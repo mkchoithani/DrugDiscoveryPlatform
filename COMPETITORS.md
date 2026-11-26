@@ -214,6 +214,104 @@ been the top blocker in ROADMAP.md for some time.
 
 ---
 
+---
+
+# The second cohort: six Indian companies
+
+Added 2026-11-26. **This list changes the conclusion above, and that is worth saying
+first.** The US cohort contained no competitor and no customer — it was a map of capital.
+This one contains **one of each**, and they are the first two real market contacts in
+either document.
+
+## Funding figures I could not confirm
+
+The source for this cohort is an aggregator list. Before using any number in it:
+
+| claim as given | what I found |
+|---|---|
+| Cellogen: **$152.4M** incl. Natco | **Does not reconcile.** Natco is reported at a ~5.38% stake for ~$2M; a May 2026 round added ₹20 crore (~$2.4M) from Kotak Life Sciences. I found nothing near $152M. |
+| Zifo: **$250M Series D** | **Unverified.** One search found no funding round at all. The company profile is solid; the round is not. |
+| Sensa Core: **₹650 crore** from Motilal Oswal | **Unverified.** No results for the company or the investor link. |
+| Pandorum: **$18M Series B, Feb 2026** | **Confirmed.** Led by Protons Corporate; follows an $11M pre-Series B. Bengaluru. |
+| Immuneel: **₹100 crore+ Series B, June 2026** | **Confirmed.** Qartemi approved by CDSCO Jan 2025; 83.3% ORR reported by the company. |
+| Bugworks: **~$43M tracked** | **Partially.** CARB-X lists $13.4M since 2017; GARDP committed up to $20M. |
+
+Treat the two large unverified numbers with suspicion — they are the two that would most
+change a strategy if believed.
+
+## Zifo RnD Solutions — the most important company on either list
+
+**What it is:** a scientific informatics *services* firm, serving a reported 190+
+science-focused organisations. Its catalogue is R&D informatics, instrument integration
+and lab automation, scientific cloud, bioinformatics, clinical trials, data science — and,
+critically, **validation, documentation, audit readiness and governance frameworks.**
+
+**Why it matters more to us than Isomorphic does:** Zifo is not a competitor on science.
+It is a competitor, or a channel, on *delivery* — and it owns the budget line our product
+would have to come out of. It also has in abundance the single thing we have none of:
+the compliance and integration layer that turns software into something a pharma company
+is allowed to run.
+
+We decided in [LANDSCAPE.md](LANDSCAPE.md) that "the lab is a CSV, not an API". That was
+the right call for a first build. **Zifo is a company whose existence is evidence that the
+integration we deferred is where the money actually is.**
+
+Two readings, and I do not think we have to choose yet:
+
+- **As a competitor:** if an informatics services firm is already embedded in 190
+  organisations, a point solution from outside has no route in.
+- **As a channel:** that same embedding is a distribution network we could never build,
+  and an examiner is a natural thing for a validation-and-governance firm to resell.
+
+Either way, our Phase 1 "auth, multi-user, audit trail" item now has a proper name:
+**21 CFR Part 11-style audit trail and validation documentation.** It is not a feature we
+add to look serious; it is the entry condition for the market Zifo already serves.
+
+## Bugworks Research — the first identifiable customer
+
+**What it is:** a clinical-stage company out of C-CAMP Bengaluru, developing multi-target
+anti-infectives and oncology assets. BWC0977, a dual DNA-gyrase/topoisomerase-IV inhibitor
+with broad Gram-positive and Gram-negative activity, is in Phase 1 IV with oral in
+preparation. Funded by CARB-X ($13.4M since 2017) and GARDP (up to $20M).
+
+**Why this is our buyer and Lilly is not:** they are a small-molecule discovery
+organisation with tens of millions, not billions. They cannot buy Schrödinger's stack and
+they have no internal platform team. Our cost structure — a CPU random forest that
+[RESULTS.md](RESULTS.md) measured as level with Chemprop at 96× less compute — stops being
+an apology and becomes the proposition.
+
+**And they expose a real defect in our product.** Section F9 below: our desirability curves
+assume oral drug-like space, and Gram-negative antibacterials do not live there. We would
+score their lead compound badly, and we would be wrong.
+
+## The three cell and gene therapy companies
+
+**Cellogen** (bispecific CD19/CD20 CAR-T, pre-trial, with CMC Vellore), **Immuneel**
+(Qartemi, CDSCO-approved Jan 2025, licensed from Hospital Clínic de Barcelona, manufactured
+in Bengaluru) and **Pandorum** (Kuragenx, an exosome "liquid cornea" for ocular surface
+disease, pre-first-in-human) are not compound-side at all. There is no molecule for our
+loop to select. **Not competitors, not customers, and no transferable feature.**
+
+They do carry one strategic signal. Cellogen is targeting $60–70k per CAR-T course against
+a global $500–700k; Immuneel pairs an approved therapy with a zero-cost EMI programme.
+**In this market the differentiator being funded is cost per outcome, not capability.**
+That is the same argument our forest-versus-Chemprop result makes, and we currently bury it
+as a footnote about compute.
+
+**Sensa Core** is IVD diagnostics hardware. Nothing to compare; I could not verify the
+company at all.
+
+## What this cohort changes
+
+1. **We have a named customer profile.** Small-molecule discovery organisations in the
+   $10–50M range, who cannot buy the incumbent stack. Bugworks is one; C-CAMP's cohort is
+   full of them.
+2. **We have a named gatekeeper.** The compliance and integration layer is a business, not
+   a checkbox, and Zifo is proof.
+3. **Cost per answer is a feature here, not an excuse.** It should be reported, not buried.
+4. **None of this changes Phase 0.** A customer in this segment will ask what the loop has
+   prospectively found faster than Lilly would, because they have fewer compounds to waste.
+
 ## Sources
 
 - [Isomorphic Labs — partnerships](https://www.isomorphiclabs.com/partnerships) · [drug design engine](https://isomorphiclabs.com/articles/the-isomorphic-labs-drug-design-engine-unlocks-a-new-frontier) · [J&J collaboration](https://www.isomorphiclabs.com/articles/isomorphic-labs-enters-into-a-research-collaboration-with-johnson-johnson) · [Merck, after the raise](https://www.fiercebiotech.com/biotech/isomorphic-labs-adds-merck-ai-drug-discovery-roster-days-after-5b-raise) · [Sacra profile](https://sacra.com/c/isomorphic-labs)
@@ -232,3 +330,13 @@ been the top blocker in ROADMAP.md for some time.
 
 **Parabilis Medicines could not be verified.** Two searches returned nothing on the
 company or its helical-peptide platform; the row above reflects the source table only.
+
+### Second cohort
+
+- [Zifo — services](https://zifornd.com/services) · [industries](https://www.zifornd.com/industries) · [CB Insights profile](https://www.cbinsights.com/company/zifo-rnd-solutions)
+- [Bugworks / GARDP — BWC0977 portfolio](https://gardp.org/portfolio/bwc0977/) · [GARDP collaboration](https://www.cidrap.umn.edu/antimicrobial-stewardship/gardp-bugworks-collaborate-development-new-broad-spectrum-antibiotic) · [CARB-X 2025 annual report](https://carb-x.org/wp-content/uploads/2026/04/2025-Annual-Report.pdf) · [first-in-human study](https://ctv.veeva.com/study/a-first-in-human-study-of-the-safety-and-tolerability-of-single-and-multiple-doses-of-bwc0977-in-hea)
+- [Cellogen — YourStory](https://yourstory.com/2026/07/cellogen-car-t-therapy-blood-cancer-india) · [Inc42](https://inc42.com/startups/inside-cellogen-the-biotech-startup-trying-to-make-500k-cancer-care-affordable/)
+- [Immuneel — BioSpectrum India](https://biospectrumindia.com/features/124/28678/immuneel-therapeutics-bengalurus-bet-on-affordable-car-t.html) · [Qartemi approval](https://theprint.in/health/2nd-living-drug-against-blood-cancer-gets-regulatory-nod-all-about-qartemi-made-in-india/2453879)
+- [Pandorum — Series B](https://www.outlookbusiness.com/corporate/pandorum-technologies-secures-18mn-series-b-to-advance-programmable-tissue-regenerative-therapies) · [longevity.technology](https://longevity.technology/news/pandorum-lands-18m-to-advance-programmable-regenerative-medicine/)
+- **Sensa Core: no results.** The company, the round and the investor link all failed to
+  verify in one search; it is listed above only as the source table gives it.

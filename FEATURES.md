@@ -1,7 +1,12 @@
-# What the twelve have that we do not, and what to do about it
+# What the funded cohorts have that we do not, and what to do about it
 
-A feature list derived from the twelve companies in [COMPETITORS.md](COMPETITORS.md) that
-are *not* our competitors, plus a build plan. Written 2026-11-26.
+A feature list derived from the companies in [COMPETITORS.md](COMPETITORS.md) that are
+*not* our competitors — twelve US, then six Indian — plus a build plan.
+Written 2026-11-26.
+
+The second cohort is the one that matters commercially: it contains a customer we can
+name and a gatekeeper we cannot route around. Its items are **F9–F12**, and two of them
+outrank most of what the US list produced.
 
 **The rule this document obeys:** nothing on this list ships because a funded company has
 it. Each item carries the known-answer test it must pass first, and the condition under
@@ -93,6 +98,108 @@ ships without an examiner test, and this document should say so plainly rather t
 inventing a benchmark to look rigorous.
 
 **Cost:** CPU, days. `report.py` already renders self-contained HTML.
+---
+
+## Tier 1b — from the Indian cohort. These outrank most of Tier 2.
+
+Added 2026-11-26, from the second cohort in [COMPETITORS.md](COMPETITORS.md). They sit in
+Tier 1 because two of them are cheap, and one of them is a defect rather than a feature.
+
+### F9. Property profiles that are not oral-drug profiles — **a bug, not a gap**
+
+**Who exposed it:** Bugworks, developing Gram-negative antibacterials.
+
+**The problem:** `scoring.py` applies desirability curves over MW, cLogP, TPSA and QED.
+Those curves encode oral small-molecule drug-likeness. **Gram-negative antibacterials do
+not live in that space**, and the rules that do govern them are different ones: the eNTRy
+rules, derived from accumulation measurements on 180+ compounds in *E. coli*, call for a
+non-sterically-hindered ionizable nitrogen (primary amines best), globularity ≤ 0.25, and
+≤ 5 rotatable bonds. Their authors are explicit that these are empirical guidelines with
+common exceptions, not filters.
+
+So today we would hand an antibacterial programme a profile tuned for a different disease
+class and score their best compounds badly. The architecture is already right — the
+profile is data, not code, by an explicit design decision in LANDSCAPE.md — but **we ship
+exactly one profile and present it as neutral.**
+
+**Known-answer test, and it is a good one:** run the marketed antibacterials through our
+default profile. **If we reject drugs that already exist and are on the market, our profile
+is wrong** — and the number of them we reject is the size of the error. Then repeat with an
+eNTRy-rules profile and check it rejects fewer.
+
+**Pass condition:** the antibacterial profile must reject materially fewer marketed
+antibacterials than the default does. If both reject the same number, the profile
+machinery is not doing what we claim and the finding belongs in RESULTS.md.
+
+**Cost:** CPU, days. Globularity and rotatable-bond counts are already available through
+RDKit; the ionizable-nitrogen test is a SMARTS match.
+
+**Why this is first:** it is the only item on either list that is a **defect we can
+demonstrate against public data today**, it costs days, and it converts a prospect's first
+objection into our own published finding. It also fits our standard exactly — the
+pharmacophore work died because counting heavy atoms beat it, and this is the same kind of
+test pointed at ourselves.
+
+### F10. A real audit trail, validated — the entry condition, not a feature
+
+**Who has it:** Zifo, as a business line (validation, documentation, audit readiness,
+governance), across a reported 190+ organisations.
+
+**What we have:** a SQLite store that records campaigns, batches, measurements and model
+runs — the raw material. **What we lack:** immutability, per-user attribution, a
+reason-for-change on every record, and any documentation a quality unit would accept.
+
+**Known-answer test:** none — this is compliance, not science, and inventing a benchmark
+for it would be exactly the dishonesty this document warns about. The test is an audit
+checklist, passed or failed.
+
+**Cost:** weeks. Unglamorous and non-negotiable. Already in Phase 1; this cohort gives it
+a name and shows there is a services industry built on it.
+
+### F11. Instrument, ELN and LIMS integration
+
+**Who has it:** Zifo, as its core competence.
+
+**The honest position:** "the lab is a CSV" remains the right first contract, and we
+should not build connectors speculatively. But a CSV is the thing a customer's informatics
+team has to wrap, and that wrapping is Zifo's business model. **Recommendation: do not
+build this; treat it as the partnership surface.** An examiner is a natural product for a
+validation-and-governance firm to resell, and they have the distribution we never will.
+
+### F12. Cost per answer, reported as a first-class number
+
+**Who made it a strategy:** Immuneel and Cellogen, whose pitch is a CAR-T course at
+$60–70k against a global $500–700k. In this market the funded differentiator is cost per
+outcome.
+
+**What we have:** the fact, buried as a footnote — the forest is level with Chemprop at
+**96× less compute**, and docking, pharmacophore and RMT were each rejected for a few hours
+of CPU.
+
+**What to add:** compute cost, wall-clock and cost-per-compound-scored on every evaluation
+report, next to the accuracy numbers. `report.py` already renders the artefact.
+
+**Known-answer test:** none needed — it is measurement and reporting, not a claim.
+
+**Cost:** days.
+
+---
+
+## Revised order
+
+F9 and F12 move ahead of most of Tier 2, because both are days of work and both change what
+we can say to a customer we can actually name.
+
+| | item | why it moved |
+|---|---|---|
+| **Phase 1** | F1 ADME · **F9 non-oral profiles** · F3 trade-off view · **F12 cost reporting** · F10 audit trail | F9 is a demonstrable defect; F12 is a strategy this market already rewards |
+| **Phase 2** | F4 Cell Painting · F2 manufacturability | unchanged — F4 remains the highest-value experiment |
+| **Phase 3** | F5 natural-product domain | unchanged |
+| **Not scheduled** | F6–F8 modalities · **F11 integrations** | F11 joins them: a partnership surface, not a build |
+
+The Phase 0 caveat is unchanged and now has more force, not less. A discovery organisation
+with $43M has fewer compounds to waste than Lilly does, so **"what has this loop
+prospectively found?" arrives sooner from this customer, not later.**
 
 ---
 
@@ -215,14 +322,17 @@ either way.
 
 ## What this list is worth, stated plainly
 
-Three of these eight items are strong: **F1** because programmes die on ADME and we do not
-model it; **F4** because it is the only untried fix for our central measured weakness; and
-**F3** because it is cheap and chemists ask for it immediately.
+Four of these twelve items are strong: **F9** because it is a defect we can demonstrate
+against public data in days; **F1** because programmes die on ADME and we do not model it;
+**F4** because it is the only untried fix for our central measured weakness; and **F3**
+because it is cheap and chemists ask for it immediately. **F12** is nearly free and worth
+doing beside them.
 
-**F5** is mostly a disclosure. **F2** may well be beaten by counting steps, and we should
-expect that. **F6–F8** should not be built.
+**F5** is mostly a disclosure. **F10** is compliance, not science, and non-negotiable.
+**F2** may well be beaten by counting steps, and we should expect that. **F6–F8** should
+not be built, and **F11** is a partnership surface rather than a build.
 
-And none of the eight changes the fact that no compound this loop selected has ever been
+And none of the twelve changes the fact that no compound this loop selected has ever been
 made. A longer feature list is the most comfortable way to avoid that sentence, which is
 the main reason this document leads with it.
 
@@ -231,4 +341,5 @@ the main reason this document leads with it.
 - [TDC ADMET Benchmark Group](https://tdcommons.ai/benchmark/admet_group/overview/) · [TDC paper, NeurIPS 2021](https://zitniklab.hms.harvard.edu/publications/papers/TDC-neurips21-main.pdf) · [Beyond Scaffold Splits (2026)](https://arxiv.org/pdf/2607.10729)
 - [JUMP Cell Painting dataset](https://www.biorxiv.org/content/10.1101/2023.03.23.534023.full.pdf) · [consortium GitHub](https://github.com/jump-cellpainting) · [batch-correction work](https://arxiv.org/pdf/2601.22331)
 - [SKEMPI 2.0](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6361233/)
+- eNTRy rules, for F9: [converting Gram-positive-only compounds](https://pubmed.ncbi.nlm.nih.gov/29446459/) · [eNTRyway and the three criteria](https://pmc.ncbi.nlm.nih.gov/articles/PMC8715754) · [worked examples](https://pmc.ncbi.nlm.nih.gov/articles/PMC8612397) · [exceptions are common](https://revive.gardp.org/?p=14643)
 - Company capabilities as cited in [COMPETITORS.md](COMPETITORS.md)

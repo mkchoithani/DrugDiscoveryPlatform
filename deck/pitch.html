@@ -85,7 +85,7 @@
   <div class="rule"></div>
   <p class="sub">A closed-loop platform that tells a chemist which molecules to make next —
   and refuses to ship any capability that has not beaten a test whose answer we already knew.</p>
-  <div class="foot"><span>26 November 2026</span><span>Status: 3 kept · 3 rejected · 3 ties · 1 parked</span></div>
+  <div class="foot"><span>26 November 2026</span><span>Status: 3 kept · 3 rejected · 4 ties · 1 parked</span></div>
 </section>
 
 <!-- 2 PROBLEM -->
@@ -141,18 +141,19 @@
     <p class="quote">Any lab can claim a model works. We hide the answers, let the software
     guess, and compare. <strong>Nothing ships until it beats a known answer.</strong></p>
     <div class="big" style="margin-top:9mm">
-      <div><div class="n">8</div><div class="l">capabilities put through the examination</div></div>
+      <div><div class="n">9</div><div class="l">capabilities put through the examination</div></div>
       <div><div class="n">3</div><div class="l">passed and kept</div></div>
       <div class="grey"><div class="n">3</div><div class="l">failed and were deleted</div></div>
       <div class="grey"><div class="n">5</div><div class="l">of our own published claims corrected</div></div>
     </div>
     <div class="note">Three rejections is the product working &mdash; each one a feature a
     competitor could have shipped on a plausible-looking number. The two that passed are the
-    loop itself, the handling of compounds too weak to measure, and now lipophilicity. Three
-    came out <em>ties</em>, each a correction to us: one we had been calling a rejection, one
-    we had never tested on the task its authors validated, and one where a tie on ranking hid
-    a loss on error. Eight capabilities, ten claims &mdash; some of them turned out to be two
-    claims wearing one verdict. One more is parked unfinished rather than counted as either.</div>
+    loop itself, the handling of compounds too weak to measure, and now lipophilicity. Four
+    came out <em>ties</em>: one we had been calling a rejection, one we had never tested on the
+    task its authors validated, one where a tie on ranking hid a loss on error, and one whose
+    signal is real and still buys us nothing. Nine capabilities, eleven claims &mdash; some
+    turned out to be two claims wearing one verdict. One more is parked unfinished rather than
+    counted as either.</div>
   </div>
   <div class="foot"><span>Hara Vara</span><span>4</span></div>
 </section>
@@ -207,7 +208,12 @@
     (mean ρ 0.44 → 0.36 → 0.12) and <strong>inverts entirely on μ-opioid</strong>: the model is
     most certain exactly where it is most wrong. That single finding changed the product — the
     default exploration parameter was cut from 1.0 to 0.25, and the tool now recommends a value
-    from the <em>worst</em> split rather than the best.</div>
+    from the <em>worst</em> split rather than the best. <strong>Three candidate fixes have now
+    been measured and none works:</strong> docking failed four times, a graph neural net tied,
+    and cell-painting morphology — the one that was different in kind — tied on scaffolds.
+    <strong>That third one does not close the question:</strong> the image data carries no dates,
+    so it could not be tested on the time split, which is the column this slide is about. We
+    would rather say the fix is untested than imply it failed, or that one exists.</div>
   </div>
   <div class="foot"><span>Hara Vara</span><span>6</span></div>
 </section>
@@ -338,7 +344,7 @@
 
 <!-- 11 ROADMAP -->
 <section class="slide">
-  <p class="kicker">The roadmap &middot; status as of 26 November</p>
+  <p class="kicker">The roadmap &middot; status at end of 26 November</p>
   <h2>What is built, what is being measured, and what is only a placeholder</h2>
   <div class="body">
     <table class="dense tight">
@@ -352,26 +358,28 @@
       <tr><td>ADME — solubility</td><td>Ties a 12-descriptor ridge and loses on error</td>
           <td><span class="tag tie">measured — ridge ships instead</span></td></tr>
       <tr><td><strong>Cell-painting phenotype</strong></td>
-          <td>A cell's response is not structural resemblance — the only untried fix for slide 6</td>
-          <td><span class="tag eval">under evaluation</span></td></tr>
-      <tr><td>Molecules never leave the customer's machine</td>
-          <td>Already true — only two modules open a connection, neither in the loop</td>
-          <td><span class="tag eval">under evaluation</span></td></tr>
-      <tr><td>Cost per answer · an auditable trail</td>
-          <td>We match a graph neural net at 96× less compute; the trail gates any pilot</td>
-          <td><span class="tag todo">not started</span></td></tr>
-      <tr><td>Manufacturability · trade-off view · scope limits</td>
-          <td>Each cheap; each may lose to a simpler baseline, which is the point</td>
+          <td>38 proteins: morphology is real, +0.113 over heavy-atom count, and adds nothing
+          fused, −0.002 [−0.012, +0.008]. <strong>No dates in the data, so the time split could
+          not be run</strong></td>
+          <td><span class="tag tie">tie on scaffolds</span></td></tr>
+      <tr class="hero"><td><strong>Molecules never leave the machine</strong></td>
+          <td>A full cycle runs with every remote address blocked; the guard is proven to fire</td>
+          <td><span class="tag pass">shipped</span></td></tr>
+      <tr class="hero"><td><strong>Cost per answer</strong></td>
+          <td>Every report now carries what the answer cost, beside the answer</td>
+          <td><span class="tag pass">shipped</span></td></tr>
+      <tr><td>Auditable trail · manufacturability · trade-off view · scope limits</td>
+          <td>The trail gates any pilot; the rest are cheap and may lose to a simpler baseline</td>
           <td><span class="tag todo">not started</span></td></tr>
       <tr class="dead"><td>Peptides, antibodies · lab-software connectors</td>
           <td>A second platform, and someone else's distribution</td>
           <td><span class="tag fail">decided against</span></td></tr>
     </table>
-    <div class="note" style="margin-top:4mm"><strong>Two are already true and we had never
-    said so</strong> — the cost advantage and the data isolation. <strong>Nothing marked "under
-    evaluation" or "not started" is claimed as working</strong>, and each carries the
-    known-answer test it must pass first. The shipped rows passed theirs; solubility did not,
-    so a ridge ships instead.</div>
+    <div class="note" style="margin-top:3mm"><strong>Four shipped in one day; two of them were
+    properties we already had and had never claimed</strong> — the cost advantage and the data
+    isolation. Two more were measured and did not earn a place: solubility ships a ridge
+    instead, and cell painting carries real signal that buys nothing once fused — on scaffolds
+    only, so the question it was raised to answer is still open.</div>
   </div>
   <div class="foot"><span>Hara Vara</span><span>11</span></div>
 </section>

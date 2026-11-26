@@ -1416,16 +1416,19 @@ own code.
 | predicted pharmacophore maps | potency, DUD-E, LIT-PCBA | **C** | rejected ×3 — PostEra release the field generator, not the scorer. The scorer is ours, so three agreeing benchmarks reject *our* screening half (section 10) |
 | Chemprop (D-MPNN) | 24 programmes + a 250→7,173 learning curve | **B** | **not a rejection** — paired CI [−0.097, +0.024] contains zero. The gap plateaus at −0.034 from n≈2,000 upward, so the forest is level with it at every size this data reaches, at 96× less compute (section 16) |
 | de novo generation (BRICS) | smoke test | — | incomplete, parked |
+| **Cell Painting morphology** | 38 proteins on a scaffold split, plus 1 LIT-PCBA target | **B** | **not a rejection** — the profile carries real signal (+0.112 over its own permutation, +0.113 over heavy-atom count) and still adds nothing to the fingerprint: rank-fused −0.002, CI [−0.012, +0.008], the tightest tie in this file. Never tested on a time split, which is the harder one and the one F4 was about (section 21) |
 | **the model on logD 7.4** | 4,198 compounds, random + scaffold | — | **passed** — ρ 0.757 on held-out scaffolds against cLogP's 0.219, and the control that strips cLogP out of the model's own features still wins by +0.478 (section 18) |
 | **the model on solubility** | 884 compounds, random + scaffold | **B** | **the forest is not shipped for it** — ties a 12-descriptor ridge on ranking, CI [−0.033, +0.032], and loses on error, MAE 1.053 vs 0.731. `choose_model` now measures the two with scaffolds held out and ships the ridge, at the cost of a worse σ (section 18) |
 
-**Eight capabilities examined, across ten claims. Three kept — the loop, censored values,
-and now logD. Two real rejections with independent support, one rejection that is about
-what we built rather than what was published, three ties — one we had been calling a
-rejection, one we had never tested at all, and one where the tie on ranking hides a loss on
-error. Five of our own published claims corrected, five verdict-function errors found and
-pinned with tests, and one defect in a published metric (section 18) found by a benchmark
-arm that existed only to be beaten.**
+**Nine capabilities examined, across eleven claims. Three kept — the loop, censored
+values, and now logD. Two real rejections with independent support, one rejection that is
+about what we built rather than what was published, four ties — one we had been calling a
+rejection, one we had never tested at all, one where the tie on ranking hides a loss on
+error, and one where the method's signal is real and still buys us nothing. Five of our own
+published claims corrected, five verdict-function errors found and pinned with tests, and
+two defects in our own measurement found by an arm that existed only to be beaten: the
+saturated metric in section 18, and the pre-specified comparison in section 21 that turned
+out to measure matrix shape rather than cells.**
 
 Section 17 is the one that cuts both ways and is worth reading as a pair: the rejection of
 RMT *as our model* got stronger, and the rejection of *the paper's claim* dissolved into a
@@ -2397,8 +2400,6 @@ counting them.
 ---
 
 # 22. What an answer cost, reported next to the answer
-
-*Section 21 is reserved for the Cell Painting work running in a sibling session.*
 
 Every number in this file has a price, and until now that price appeared only in prose:
 "a few hours of CPU", "96× less compute to fit", "two ChEMBL queries and a few minutes".

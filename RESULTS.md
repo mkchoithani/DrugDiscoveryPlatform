@@ -2190,6 +2190,212 @@ the reason it had never been claimed. It is worth asking what else is in that ca
 
 ---
 
+# 21. Cell Painting: the signal is real and it adds nothing
+
+F4 was the most valuable experiment on the feature list, because it was the only untried
+fix for the finding that limits this whole platform: σ ranks error at 0.44 on a random
+split, 0.36 on scaffolds and **0.12 on time**, because a fingerprint model only knows
+resemblance to what it has already seen. Docking was the proposed fix and failed four
+times. Chemprop tied. A morphological profile is **not** a structural resemblance, so it
+was different in kind rather than degree.
+
+```bash
+python3 jump_annotated_test.py
+```
+
+## Provenance, because this section nearly carried the wrong numbers
+
+The experiment was run in a sibling session, which then failed before writing it up. A
+cached set of per-protein differences was sitting in `data/jump_cache`, and reconstructing
+the verdict from it gave a clean, publishable story.
+
+It was the wrong run. The cache was written at 08:28:47 and the script was edited at
+08:29:03 — sixteen seconds later — and the commit that landed the scripts said the run
+built on the broken split **"was discarded and is being redone"**. Re-running and diffing
+the two caches settles it:
+
+| comparison | discarded run | the run reported here |
+|---|---|---|
+| concatenated − fingerprint | −0.048 | **−0.032** |
+| profile − heavy-atom count | +0.173 | **+0.113** |
+| rank-fused − fingerprint | −0.006 | **−0.002** |
+
+Every conclusion below survives the correction. **Every magnitude moved**, one of them by
+a third. A reader who had quoted the 08:28 numbers would not have been wrong about the
+direction of anything and would have been wrong about the size of everything.
+
+**The tree these numbers were computed at: `a0ce85e`.** Six sessions were writing to this
+branch while the run was scoring, so the tree moved underneath it.
+`git diff a0ce85e -- jump_*.py` is empty, so the code that ran and the code that is
+committed are the same bytes. The runtime import closure is `dmta`, `dmta.chem`,
+`dmta.chembl`, `dmta.library` and the two jump modules; intersected with everything that
+changed between `a0ce85e` and HEAD (`dmta/campaign.py`, `dmta/models.py`) it is empty, so
+no later commit can have moved these numbers.
+
+> Take that closure **at runtime, not at import**. `scaffold_key` imports `dmta.chembl`
+> inside the function body, so the import-time closure omits it — and `chembl.murcko` is
+> the most load-bearing call in the entire split. Measured before the code runs, the
+> closure would have "proved" that `chembl.py` was uninvolved. The failure is silent and
+> looks like diligence.
+
+## The benchmark, and the weakness stated before the result
+
+Two versions exist, and the reason is instructive. The LIT-PCBA version has the better
+labels — inactives that were **measured** rather than assumed, on an AVE-unbiased split —
+and no power: only 382 LIT-PCBA actives across fifteen targets are also in JUMP, and
+exactly one target clears twenty test actives. One target cannot carry a verdict.
+
+The version reported here uses **JUMP's own target annotations**: 17,891 compounds with
+both a profile and an annotation row, 614 profile features, 38 proteins clearing the
+threshold. Its labels are weaker, and the script says so before reporting anything: a 0
+means *"not annotated against this protein"*, which is mostly "never tested" and only
+sometimes "tested and inactive" — the same defect as DUD-E's untested decoys, which §15
+showed can reverse a verdict outright. That makes the benchmark easier than a real screen
+**for every arm equally**, so a comparison between arms is still fair while an absolute
+AUC from it is not comparable to one from LIT-PCBA.
+
+The split is Bemis–Murcko scaffold, 75/25 (13,418 train / 4,473 test), scaffolds disjoint.
+**JUMP carries no dates, so a time split is impossible here** — and the time split is what
+F4 was really about. A win would have been necessary but not sufficient.
+
+## The result, across 38 proteins
+
+| comparison | mean ΔAUC | 95% CI | wins | verdict |
+|---|---|---|---|---|
+| **pre-specified primary** — profile concatenated to fingerprint, vs fingerprint | **−0.032** | [−0.047, −0.017] | 13/38 | **loses** |
+| the control — real profile columns vs the same columns scrambled | **+0.054** | [+0.038, +0.071] | 33/38 | **wins** |
+| **dilution-immune** — rank-fused, vs fingerprint | **−0.002** | [−0.012, +0.008] | 18/38 | **tie** |
+| is the profile above chance at all | +0.112 | [+0.071, +0.158] | 33/38 | wins |
+| profile alone vs heavy-atom count | +0.113 | [+0.062, +0.166] | 25/38 | wins |
+
+Read those five rows together, because no single one of them is the finding.
+
+**The morphology is real.** It beats chance by +0.112, it beats counting heavy atoms by
++0.113 — the baseline that has embarrassed us twice before, in §10 and §14 — and the same
+columns scrambled are worth +0.054 less than the real ones. Whatever Cell Painting is
+measuring, it is measuring something.
+
+**And it adds nothing to a fingerprint model.** Concatenating it actively *hurts*: −0.032,
+interval excluding zero, winning on 13 proteins of 38. The control explains why — 614
+extra columns dilute 2,048 fingerprint bits whether those columns carry morphology or
+noise, which is exactly why the scrambled arm exists and why the pre-specified comparison
+could not have settled anything on its own.
+
+So the honest test is the rank-fused arm, which cannot be diluted. It comes out **−0.002,
+CI [−0.012, +0.008]: a tie.** By §16's taxonomy that is kind **B** — no evidence of gain
+here, not a rejection of the method. An effect up to 0.012 of AUC in either direction
+still sits inside that interval.
+
+## The half with the honest labels, and the control firing in the open
+
+The LIT-PCBA run is quoted above only for its lack of power, but it is where the control
+is easiest to see, because there the profile genuinely carried nothing and the
+pre-specified arm still produced a confident-looking loss. On ALDH1 — 179 train / 68 test
+actives against 4,636 matched inactives, on the AVE-unbiased split:
+
+| arm | AUC |
+|---|---|
+| fingerprint | **0.714** |
+| rank-fused | 0.671 |
+| heavy-atom count | 0.602 |
+| **fingerprint + SCRAMBLED profile** | **0.592** |
+| fingerprint + profile | 0.591 |
+| profile alone | 0.536 |
+
+| comparison | difference | 95% CI | verdict |
+|---|---|---|---|
+| `both` − `fingerprint` (pre-specified) | −0.123 | [−0.198, −0.047] | loses |
+| **`both` − `scrambled`** | **−0.001** | **[−0.092, +0.095]** | **tie** |
+| `fused` − `fingerprint` | −0.043 | [−0.088, +0.003] | tie |
+| profile − its own permutation | +0.015 | [−0.082, +0.114] | tie |
+
+Real morphology and 614 columns of pure noise cost the forest the **same** AUC, to within
+0.001. Read without the control, −0.123 with an interval excluding zero is a publishable
+claim that Cell Painting makes hit finding worse. It would have been a false statement
+about morphology derived from a true statement about matrix shape.
+
+**And the two halves disagree about whether the profile carries anything.** On ALDH1 the
+control says nothing (−0.001); across 38 proteins it says +0.054. Both are correct. The
+first had one target and an interval of ±0.095, which cannot resolve an effect of 0.054 —
+so it was never evidence of absence, and reporting it as such would have been the error
+§17 named. The disagreement is a measurement of power, not a contradiction.
+
+One point in the join's favour, since its size is its main weakness: the match rate is
+**4.5% of actives against 4.6% of inactives**, and the matched actives track the full set
+on bulk properties (MW 349 vs 364, cLogP 3.02 vs 2.76). Had JUMP preferentially held the
+actives, every arm would have inherited a label-correlated selection effect.
+
+## A pattern in the per-protein table that is not a finding
+
+The five proteins where the profile beats the fingerprint lean toward structural and
+aggregation-prone targets — P02545 lamin A/C (0.611 vs 0.589), P42858 huntingtin (0.626
+vs 0.588) — while the fingerprint dominates where the label is binding-like (O15118 NPC1,
+0.821 vs 0.657; P14618 PKM2, 0.608 vs 0.386). Cell Painting stains the nucleus and the
+cytoskeleton, so that is mechanistically plausible.
+
+It is also a hypothesis formed by reading the table after seeing it, and a rule applied by
+hand to proteins we cannot all confidently identify is judgement wearing a criterion's
+clothes. JUMP ships CRISPR and ORF profiles for these same genes, which supplies an
+objective version: a gene whose knockout produces a distinctive morphological signature is
+visible by definition, decided with no reference to any compound result. Until that is
+run, this paragraph is a reason to do the work, not a result.
+
+## What this does and does not license
+
+**It does not close F4.** F4's claim was about the *time* split, and this benchmark cannot
+run one. What was measured is that on a scaffold split, with weak labels, a morphological
+profile does not improve on fingerprints — evidence about dilution and about this dataset,
+not about extrapolation to future chemistry. The σ collapse remains unaddressed, and the
+cheap hypotheses for it are now exhausted rather than resolved.
+
+**It does not say Cell Painting is useless.** Three of the five rows say the opposite. It
+says that *as an additional feature block for a potency model*, on this benchmark, it is
+not worth the columns.
+
+**The pre-specified arm was void, and the control is what proved it.** This is the same
+shape as §17, where the pre-specified `clip` mode lost to `project` on 9 of 9 targets and
+the choice decided the verdict. Here the pre-specification was not merely unlucky — it was
+*structurally incapable* of answering the question, because concatenation confounds signal
+with dilution. The scrambled-profile control made that visible, and it was written before
+the first run.
+
+## What it cost
+
+One 342 MB profile download, one featurisation, 38 protein fits, no GPU, about twenty
+minutes of wall clock. The dominant cost was an RDKit defect found the hard way:
+`MurckoScaffold` raises "bad any cast" on **every** molecule in RDKit 2026.09.2, and a
+bare `except: return ""` turned that total failure into a silent one — every compound
+became its own scaffold group, and the "scaffold split" was a split on row order. That
+run is the discarded one in the provenance table above. `dmta.chembl.murcko` had worked
+around the same defect since before this section existed; reimplementing a thing the
+codebase already does correctly is how the bug got in, and delegating to it is the fix.
+
+**A crash would have cost minutes. The silent version cost a full run.** And no
+disjointness assertion can catch it, because distinct keys are trivially disjoint — the
+test now requires the fixture compounds to **share** scaffolds before it checks that the
+split separates them. A test that cannot fail in the direction you care about is not a
+test.
+
+That makes four instances of one structure in this document, each caught by something that
+existed only to be beaten:
+
+| | the check that passed | what was actually absent |
+|---|---|---|
+| §16 | a metric with no resolution left | any ability to separate the arms |
+| §18 | a correlation over tied ranks | the ranks |
+| §21 | every `scaffold_key` call returned a plausible value | any scaffold |
+| §21 | `1 passed, 96 deselected`, read as a pass | four of the five tests, deleted from the tree |
+
+The last row is this section's own near-miss, and it is the cleanest of the four. A
+sibling session restoring these tests after an accidental staging printed
+`restored their block: 1 tests` and read it as success. The count was *correct* — one test
+really was restored — and it was still wrong, because the question was never "how many"
+but **how many of how many**. A number with no denominator is not a check. The cheap guard
+is `git diff HEAD <file> | grep "^+def test"`, which names every added test instead of
+counting them.
+
+---
+
 # 22. What an answer cost, reported next to the answer
 
 *Section 21 is reserved for the Cell Painting work running in a sibling session.*

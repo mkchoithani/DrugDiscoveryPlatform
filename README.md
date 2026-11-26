@@ -54,6 +54,13 @@ Prepare a protein structure for docking and see exactly what was stripped from i
 python3 -m dmta.cli structure --pdb 2RGP
 ```
 
+Run the model against two public ADME endpoints, with a control that strips cLogP out of
+its own feature vector so a win cannot come from reading the baseline off the input:
+
+```bash
+python3 adme_test.py both
+```
+
 Check whether docking into that structure actually ranks compounds whose potency you
 already know — run this **before** trusting a docking score for anything:
 

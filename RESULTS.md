@@ -1416,12 +1416,16 @@ own code.
 | predicted pharmacophore maps | potency, DUD-E, LIT-PCBA | **C** | rejected ×3 — PostEra release the field generator, not the scorer. The scorer is ours, so three agreeing benchmarks reject *our* screening half (section 10) |
 | Chemprop (D-MPNN) | 24 programmes + a 250→7,173 learning curve | **B** | **not a rejection** — paired CI [−0.097, +0.024] contains zero. The gap plateaus at −0.034 from n≈2,000 upward, so the forest is level with it at every size this data reaches, at 96× less compute (section 16) |
 | de novo generation (BRICS) | smoke test | — | incomplete, parked |
+| **the model on logD 7.4** | 4,198 compounds, random + scaffold | — | **passed** — ρ 0.757 on held-out scaffolds against cLogP's 0.219, and the control that strips cLogP out of the model's own features still wins by +0.478 (section 18) |
+| **the model on solubility** | 884 compounds, random + scaffold | **B** | **not a rejection, but we should not ship it** — ties a 12-descriptor ridge on ranking, CI [−0.033, +0.032], and loses to it on error, MAE 1.053 vs 0.731 (section 18) |
 
-**Seven capabilities examined, across eight claims. Two kept. Two real rejections with
-independent support, one rejection that is about what we built rather than what was
-published, two ties — one we had been calling a rejection, one we had never tested at all.
-Five of our own published claims corrected, and five verdict-function errors found and
-pinned with tests.**
+**Eight capabilities examined, across ten claims. Three kept — the loop, censored values,
+and now logD. Two real rejections with independent support, one rejection that is about
+what we built rather than what was published, three ties — one we had been calling a
+rejection, one we had never tested at all, and one where the tie on ranking hides a loss on
+error. Five of our own published claims corrected, five verdict-function errors found and
+pinned with tests, and one defect in a published metric (section 18) found by a benchmark
+arm that existed only to be beaten.**
 
 Section 17 is the one that cuts both ways and is worth reading as a pair: the rejection of
 RMT *as our model* got stronger, and the rejection of *the paper's claim* dissolved into a
@@ -1711,3 +1715,171 @@ can see that the prediction failed and judge the result anyway.
   0.02 AUC would not have been detected here.
 - **Cost is not the argument.** All arms fit in 1.3–1.4 s. Unlike Chemprop, RMT was not
   kept out on compute; it was kept out on the measurement.
+
+---
+
+# 18. ADME: the first endpoint that is not potency
+
+Every number above this line is a potency number, and [§1](#1-can-the-model-predict-real-potency)
+already says potency is not what kills programmes: *"No selectivity, no ADMET, no tox — the
+objectives a real programme dies on."* This is the first test of the platform's model on an
+endpoint a real project would actually optimise against.
+
+```bash
+python3 adme_test.py both
+```
+
+Two public sets, through the platform's own `load_csv`, `PropertyModel`, `random_split` and
+`scaffold_split`:
+
+| set | endpoint | rows | usable | source |
+|---|---|---|---|---|
+| `logd` | logD 7.4 | 4,200 | 4,198 | MoleculeNet Lipophilicity, curated from ChEMBL |
+| `solubility` | log solubility (mol/L) | 1,128 | 884 | MoleculeNet ESOL / Delaney |
+
+## The trap this test had to be built around
+
+`dmta.chem.feature_vector` is a Morgan fingerprint concatenated with twelve physchem
+descriptors, and the second of those is **Crippen cLogP**. For potency that is one weak
+feature among 2,060. For these two endpoints it is nearly the answer: logD *is* lipophilicity
+measured, cLogP is lipophilicity computed, and solubility is largely the same quantity with
+the sign reversed.
+
+So "our model beats cLogP" would be a claim about a model that was handed cLogP as an input.
+The comparison is only worth anything with a fourth arm: **the identical forest with the
+physchem block stripped**, which separates having learned chemistry from having read the
+baseline off its own feature vector. A test asserts that the strip really removes cLogP,
+because if it did not, the control would silently contain the thing it exists to exclude and
+the verdict would look fine while measuring nothing.
+
+There is **no time split**: neither public set carries dates. That matters more here than
+anywhere else in this document, because the time split is the column where this platform's
+σ collapsed (0.44 → 0.36 → **0.12**, inverting to −0.13 on μ-opioid) and it is the column a
+production model lives in. §18 covers the two easier columns only.
+
+## logD: a real win, and the control confirms it
+
+Spearman ρ, mean over 5 split seeds:
+
+| arm | random | scaffold |
+|---|---|---|
+| **forest** (the platform's model) | **0.799** | **0.757** |
+| forest, fingerprint only | 0.724 | 0.703 |
+| ridge on 12 physchem descriptors | 0.528 | 0.380 |
+| cLogP alone | 0.400 | 0.219 |
+| heavy-atom count | 0.169 | 0.090 |
+| constant predictor | — | — |
+
+On the scaffold split (seed 0, 3,353 train / 845 test), paired bootstrap over test compounds:
+
+| comparison | Δρ | 95% CI | verdict |
+|---|---|---|---|
+| forest − cLogP | +0.534 | [+0.469, +0.597] | **wins** |
+| forest − descriptor ridge | +0.386 | [+0.333, +0.441] | **wins** |
+| forest − heavy atoms | +0.641 | [+0.577, +0.706] | **wins** |
+| **fingerprint-only forest − cLogP** | **+0.478** | **[+0.407, +0.549]** | **wins** |
+| forest − fingerprint-only forest | +0.056 | [+0.039, +0.072] | the physchem block is worth this much |
+
+**The control is the result.** Strip every descriptor, including cLogP, and the forest still
+beats cLogP by +0.478 on held-out scaffolds. The whole physchem block is worth +0.056. The
+model is not reading the answer off its own input; the fingerprint genuinely carries
+lipophilicity information. MAE 0.654 against cLogP's 0.952, R² 0.483 against 0.020.
+
+σ ranks error at +0.324 on the scaffold split — comparable to the potency targets, and usable.
+
+## Solubility: a tie with a twelve-descriptor linear model, and a loss on error
+
+| arm | random | scaffold |
+|---|---|---|
+| **forest** | **0.922** | **0.917** |
+| forest, fingerprint only | 0.785 | 0.618 |
+| ridge on 12 physchem descriptors | 0.877 | **0.914** |
+| cLogP alone | 0.830 | 0.892 |
+| heavy-atom count | 0.529 | 0.519 |
+
+Scaffold split, seed 0 (707 train / 177 test):
+
+| comparison | Δρ | 95% CI | verdict |
+|---|---|---|---|
+| forest − cLogP | +0.024 | [−0.008, +0.058] | **tie** |
+| forest − descriptor ridge | **−0.001** | **[−0.033, +0.032]** | **tie** |
+| forest − heavy atoms | +0.413 | [+0.319, +0.514] | wins |
+| fingerprint-only forest − cLogP | **−0.282** | [−0.385, −0.190] | **loses** |
+
+And on absolute error the ranking tie becomes an outright loss:
+
+| arm | MAE | R² |
+|---|---|---|
+| forest | 1.053 | 0.612 |
+| **ridge on 12 descriptors** | **0.731** | **0.821** |
+| cLogP alone | 0.828 | 0.777 |
+| forest, fingerprint only | 1.504 | 0.238 |
+
+**A twelve-number linear model beats the full platform on this endpoint** — better MAE,
+better R², indistinguishable ρ — and plain cLogP beats the forest on MAE too. The 2,048
+fingerprint bits are doing the work of the 1968-vintage Yalkowsky relationship, worse.
+
+### Why, and it is not a tuning problem
+
+Solubility spans −11.6 to +1.14 log units. A forest cannot predict outside the range of its
+training leaves, so held-out scaffolds in the tails get squashed toward the mean; a linear
+model extrapolates. Ranking survives this (ρ ties) and absolute error does not (MAE loses by
+0.32 log units). This is a structural property of tree ensembles on a wide-range regression
+endpoint, not a hyperparameter we failed to find.
+
+σ ranks error at only **+0.157** on the scaffold split — weak or uninformative. Every
+acquisition function except `greedy` spends part of its batch on σ, so on this endpoint the
+loop's exploration would be spending budget on noise.
+
+## The bug this test found in our own metric
+
+`dmta.models._rank` assigned ranks in `argsort` order with **no tie handling at all**. For
+ordinary predictions that is a rounding-level error. For a *constant* predictor it is not:
+the arbitrary tie order gives the constant arm real rank variance, the "is this constant"
+guard never fires, and Spearman comes back as a small random number instead of undefined.
+
+It showed itself as an impossibility in the first run — a point estimate outside its own
+confidence interval:
+
+```
+  forest vs mean
+    d-rho +0.665, 95% CI [+0.666, +0.812]
+```
+
+`_rank` now returns mid-ranks and agrees with `scipy.stats.spearmanr` exactly, ties included;
+`regression_metrics` returns `None` for a constant prediction; and the constant arm is scored
+on MAE only, where a floor actually means something.
+
+**No published number moved.** Re-running `chembl-validate` on EGFR after the fix reproduces
+σ~err of 0.437 / 0.464 / 0.321 — the 0.44 / 0.46 / 0.32 reported in §1 — because a 300-tree
+forest on distinct compounds produces almost no exact ties. The defect was real, it was in a
+metric the split evaluation publishes, and it was only reachable from a benchmark that
+carried a degenerate floor. That is an argument for always carrying one.
+
+## What this licenses us to say
+
+- **logD: the platform's model works on an ADME endpoint**, and the claim survives the
+  control that strips the trivial baseline out of its own input. This is the first
+  non-potency capability to pass.
+- **Solubility: it does not beat a twelve-descriptor linear model**, ties it on ranking and
+  loses to it on error. We should ship the ridge for this endpoint and say so.
+- The two answers disagree, which is the useful part: "the model does ADME" is not a claim
+  this platform can make. It does *logD*. Each endpoint needs its own examination, and the
+  cheap linear baseline has to be in every one of them.
+
+## Where this test is weak, stated plainly
+
+- **No time split, on either set.** The column that broke potency prediction is untested
+  here, and there is no reason to expect ADME to be kinder.
+- **Two endpoints, both public, both on MoleculeNet.** No clearance, no permeability, no
+  hERG, no plasma protein binding. logD and solubility are the two most physics-like ADME
+  endpoints and plausibly the two most favourable.
+- **884 of 1,128 solubility rows are usable.** `standardize` drops anything under 8 heavy
+  atoms, which removes the small solutes. That is what the platform really does to an
+  uploaded CSV, and it makes the task harder rather than easier — but a fifth of the file
+  is gone and the reader should know.
+- **The bootstrap resamples compounds, not targets.** Unlike §16 and §17, there is one
+  dataset per endpoint, so the interval describes uncertainty *within* that endpoint and
+  says nothing about the next one. The 5-seed spread is reported alongside for that reason.
+- **The solubility test set is 177 compounds.** The ±0.033 tie interval is as tight as that
+  allows, and a real effect of 0.03 ρ would not have been detected.

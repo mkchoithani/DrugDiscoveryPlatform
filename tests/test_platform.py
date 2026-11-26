@@ -1268,3 +1268,105 @@ def test_a_plateau_is_not_read_as_a_trend():
     flat = [-0.030, -0.034, -0.029, -0.033, -0.031, -0.034]
     out = "\n".join(read_trend(ns, flat))
     assert "FLAT" in out and "never the explanation" in out, out
+
+
+# ------------------------------------------------------- the ADME control arm
+
+from adme_test import CLOGP_AT, HEAVY_AT, N_PHYS, check_feature_layout, read_verdict
+
+
+def test_the_fingerprint_only_arm_really_excludes_clogp():
+    """Section 18 turns on one claim: that X[:, :-12] contains no cLogP.
+
+    The whole ADME comparison is "does the model know chemistry, or is it reading
+    the trivial baseline off its own input". If stripping the physchem block left
+    cLogP behind -- because the block moved, or changed length -- the control arm
+    would silently contain the thing it exists to exclude, and the verdict would
+    be meaningless while still looking fine.
+    """
+    smiles = "CCOc1ccccc1C(=O)O"
+    vec = feature_vector(smiles)
+    d = descriptors(smiles)
+    phys = vec[-N_PHYS:]
+    assert np.isclose(phys[CLOGP_AT], d["clogp"] / 5.0, atol=1e-5)
+    assert np.isclose(vec[HEAVY_AT], d["heavy_atoms"] / 40.0, atol=1e-5)
+
+    fp_only = vec[:-N_PHYS]
+    assert len(fp_only) == len(vec) - N_PHYS
+    assert np.isclose(fp_only, d["clogp"] / 5.0, atol=1e-5).sum() == 0, (
+        "a column equal to cLogP/5 survived the strip"
+    )
+    # a fingerprint is bits; a physchem column is not
+    assert set(np.unique(fp_only)) <= {0.0, 1.0}
+
+
+def test_the_feature_layout_guard_fires_when_the_layout_moves(monkeypatch):
+    """The guard has to fail loudly, not pass quietly, or it is decoration."""
+    check_feature_layout()                      # the real layout passes
+    import adme_test
+    monkeypatch.setattr(adme_test, "CLOGP_AT", 0)
+    with pytest.raises(SystemExit, match="feature layout changed"):
+        adme_test.check_feature_layout()
+
+
+def test_the_adme_verdict_will_not_call_a_tie_a_win():
+    """Same three-valued rule as sections 16 and 17, pinned again here."""
+    assert "WINS" in read_verdict(0.04, 0.01, 0.07, "the forest")
+    assert "LOSES" in read_verdict(-0.04, -0.07, -0.01, "the forest")
+    tie = read_verdict(0.004, -0.028, 0.036, "the forest")
+    assert "TIE" in tie and "WINS" not in tie
+    assert "0.036" in tie              # reports the effect still inside the interval
+
+
+def test_spearman_uses_mid_ranks_and_matches_scipy():
+    """_rank had no tie handling: it ordered equal values arbitrarily.
+
+    Section 18 found it because a constant predictor then has real rank variance,
+    the 'is this constant' guard never fires, and the correlation comes back as a
+    small random number. The visible symptom was a bootstrap point estimate
+    outside its own confidence interval.
+    """
+    scipy_stats = pytest.importorskip("scipy.stats")
+    rng = np.random.default_rng(0)
+    for n, n_tied in ((60, 0), (60, 20), (200, 80)):
+        obs = rng.normal(size=n)
+        pred = obs + rng.normal(size=n) * 0.7
+        if n_tied:
+            pred[:n_tied] = pred[0]
+        ours = regression_metrics(list(pred), list(obs))["spearman"]
+        ref = round(float(scipy_stats.spearmanr(pred, obs).statistic), 3)
+        assert ours == ref, f"n={n} ties={n_tied}: {ours} != {ref}"
+
+
+def test_a_constant_prediction_has_no_rank_correlation():
+    """Undefined, not zero — and emphatically not a small random number."""
+    rng = np.random.default_rng(1)
+    obs = list(rng.normal(size=50))
+    assert regression_metrics([3.0] * 50, obs)["spearman"] is None
+    # the floor still has a defined error, which is the point of keeping it
+    assert regression_metrics([3.0] * 50, obs)["mae"] is not None
+
+
+def test_ties_do_not_move_the_potency_numbers():
+    """The fix must not silently restate section 1.
+
+    Forest predictions on distinct compounds are almost never exactly equal, so
+    mid-ranks and ordinal ranks agree. If this ever fails, the published split
+    numbers need re-checking, not the test.
+    """
+    rng = np.random.default_rng(2)
+    obs = rng.normal(size=300)
+    pred = obs + rng.normal(size=300) * 0.5          # no exact ties
+    assert len(set(pred)) == len(pred)
+    mid = regression_metrics(list(pred), list(obs))["spearman"]
+    order = pred.argsort()
+    ordinal = np.empty(len(pred));  ordinal[order] = np.arange(len(pred))
+    ro = _rank_free_spearman(ordinal, obs)
+    assert abs(mid - ro) < 0.002, (mid, ro)
+
+
+def _rank_free_spearman(rank_p: np.ndarray, o: np.ndarray) -> float:
+    from dmta.models import _rank
+    rank_o = _rank(o)
+    sd = rank_p.std() * rank_o.std()
+    return float(((rank_p - rank_p.mean()) * (rank_o - rank_o.mean())).mean() / sd)

@@ -86,6 +86,9 @@ def regression_metrics(pred: list[float], obs: list[float]) -> dict:
     p, o = np.array(pred, dtype=float), np.array(obs, dtype=float)
     ss_tot = float(((o - o.mean()) ** 2).sum())
     r2 = round(1 - float(((o - p) ** 2).sum()) / ss_tot, 3) if ss_tot > 1e-9 else None
+    # A constant prediction has no ranking, so the correlation is undefined
+    # rather than zero. With mid-ranks its rank vector really is constant, so
+    # this guard now fires instead of being bypassed by arbitrary tie order.
     rank_p, rank_o = _rank(p), _rank(o)
     sd = rank_p.std() * rank_o.std()
     spearman = round(float(((rank_p - rank_p.mean()) * (rank_o - rank_o.mean())).mean() / sd), 3) if sd > 1e-9 else None
@@ -98,7 +101,27 @@ def regression_metrics(pred: list[float], obs: list[float]) -> dict:
 
 
 def _rank(a: np.ndarray) -> np.ndarray:
-    order = a.argsort()
-    r = np.empty_like(order, dtype=float)
+    """Mid-ranks, which is what Spearman is defined on.
+
+    This used to assign distinct ranks in argsort order, so tied values were
+    ordered arbitrarily. For ordinary predictions that is a rounding-level
+    error, but it makes a *constant* predictor look like a ranking: its
+    arbitrary ranks have real variance, the "is it constant" guard below never
+    fires, and the correlation comes back as a small random number instead of
+    undefined. Any benchmark carrying a constant-predictor floor would have
+    scored that floor as noise around zero rather than as no ranking at all.
+    """
+    order = a.argsort(kind="mergesort")
+    r = np.empty(len(a), dtype=float)
     r[order] = np.arange(len(a), dtype=float)
+    # average the ranks within each run of equal values
+    srt = a[order]
+    i = 0
+    while i < len(srt):
+        j = i + 1
+        while j < len(srt) and srt[j] == srt[i]:
+            j += 1
+        if j - i > 1:
+            r[order[i:j]] = (i + j - 1) / 2.0
+        i = j
     return r

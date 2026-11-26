@@ -33,3 +33,5 @@ ui/reports/
 # Downloaded papers (copyright stays with the publishers)
 papers/
 data/rmt_screen_cache/
+data/adme_raw/
+data/jump_cache/

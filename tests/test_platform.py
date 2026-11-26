@@ -1793,3 +1793,46 @@ def test_the_scaffold_count_does_not_collapse_on_real_data():
     assert counts.most_common(1)[0][1] < 0.5 * len(rows), (
         "one scaffold covers more than half the file, which no real series does"
     )
+
+
+def test_a_results_cache_from_different_code_is_refused_not_warned_about():
+    """Section 21 was nearly published from a discarded run's cache.
+
+    The cache held five clean arrays and said nothing about which code wrote them,
+    so a run scored on the broken scaffold split reconstructed into a plausible
+    story: every direction right, every magnitude wrong (-0.048 against -0.032,
+    +0.173 against +0.113). That is the believable kind of wrong.
+
+    Two properties are pinned here. A cache written by different code must RAISE,
+    not warn -- a warning printed beside a number that looks right is read as a
+    number that is right. And a cache with no provenance at all must also raise,
+    because "no stamp" is the state every pre-guard file is in, and silently
+    trusting it would exempt exactly the files that caused this.
+    """
+    import numpy as np
+    from jump_annotated_test import provenance, read_cache
+
+    with tempfile.TemporaryDirectory() as d:
+        unstamped = Path(d) / "unstamped.npz"
+        np.savez_compressed(unstamped, fused_minus_fingerprint=np.array([-0.002]))
+        with pytest.raises(ValueError, match="no provenance"):
+            read_cache(unstamped)
+
+        stale = Path(d) / "stale.npz"
+        stamp = dict(provenance())
+        stamp["_script_sha256"] = "0000000000000000"       # as if other code wrote it
+        np.savez_compressed(stale, fused_minus_fingerprint=np.array([-0.002]), **stamp)
+        with pytest.raises(ValueError, match="different version"):
+            read_cache(stale)
+
+        good = Path(d) / "good.npz"
+        np.savez_compressed(good, fused_minus_fingerprint=np.array([-0.002]),
+                            **provenance())
+        out = read_cache(good)
+        assert set(out) == {"fused_minus_fingerprint"}, \
+            "provenance keys must not leak into the reported numbers"
+        assert out["fused_minus_fingerprint"][0] == -0.002
+
+    missing = Path(d) / "gone.npz"                          # the directory is gone now
+    with pytest.raises(FileNotFoundError):
+        read_cache(missing)

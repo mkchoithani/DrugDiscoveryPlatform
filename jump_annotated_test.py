@@ -227,8 +227,74 @@ def main(limit: int | None) -> None:
               f"wins {wins}/{len(v)}")
         print(f"    -> {verdict(v.mean(), lo, hi, a)}\n")
 
-    np.savez_compressed(SCORES, **{f"{k}": np.array(v) for k, v in per.items()})
+    np.savez_compressed(SCORES, **{f"{k}": np.array(v) for k, v in per.items()},
+                        **provenance())
     print(f"per-protein differences cached to {SCORES}")
+    for k, v in provenance().items():
+        print(f"  {k}: {v}")
+
+
+
+def provenance() -> dict:
+    """What produced this cache, stored beside the numbers.
+
+    A sibling session nearly published section 21 from a stale copy of this file.
+    The cache held five clean arrays and said nothing about which run wrote them,
+    so a discarded run -- scored on the broken scaffold split -- reconstructed into
+    a plausible, publishable story. The magnitudes were all wrong: -0.048 against
+    -0.032, +0.173 against +0.113. The directions were right, which is what made it
+    believable.
+
+    A results file that cannot say which code produced it has the same defect as the
+    row-order split: it looks fine and cannot be checked. So the cache now carries
+    the commit, whether the tree was dirty, and a hash of this script's own bytes.
+    read_cache() refuses a cache whose script hash does not match rather than warning
+    about it, because a warning printed next to a number that looks right is read as
+    a number that is right.
+    """
+    import hashlib
+    import subprocess
+    from datetime import datetime, timezone
+
+    def git(*args: str) -> str:
+        try:
+            return subprocess.run(("git", *args), capture_output=True, text=True,
+                                  timeout=30).stdout.strip()
+        except Exception:
+            return "unavailable"
+
+    me = Path(__file__).read_bytes()
+    return {
+        "_commit": git("rev-parse", "HEAD"),
+        "_dirty": "yes" if git("status", "--porcelain", "--", __file__) else "no",
+        "_script_sha256": hashlib.sha256(me).hexdigest()[:16],
+        "_written_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+
+
+def read_cache(path: Path = SCORES) -> dict:
+    """Load cached differences, or refuse if this script has changed since.
+
+    Refusing is the point. The failure this guards against is not a missing cache,
+    which announces itself, but a present one written by different code.
+    """
+    import hashlib
+    if not path.exists():
+        raise FileNotFoundError(f"{path} does not exist -- run the script")
+    d = np.load(path)
+    stamped = str(d["_script_sha256"]) if "_script_sha256" in d else None
+    actual = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16]
+    if stamped is None:
+        raise ValueError(
+            f"{path} carries no provenance, so it predates this guard and cannot be "
+            f"attributed to any version of this script. Delete it and re-run.")
+    if stamped != actual:
+        raise ValueError(
+            f"{path} was written by a different version of this script "
+            f"({stamped}, commit {str(d['_commit'])[:8]}, dirty={str(d['_dirty'])}, "
+            f"at {str(d['_written_utc'])}); this file hashes to {actual}. "
+            f"Re-run rather than reporting these numbers.")
+    return {k: d[k] for k in d.files if not k.startswith("_")}
 
 
 def _heavy(s: str) -> float:

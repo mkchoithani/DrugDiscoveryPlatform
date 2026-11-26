@@ -13,6 +13,8 @@ browser UI, a CLI, and benchmarks that check the loop actually beats screening.
   open-source stack, and why it is built this way.
 - [COMPETITORS.md](COMPETITORS.md) — the heavily funded 2026 cohort checked one at a time,
   what actually blocks this from being sold, and where the product should go.
+- [FEATURES.md](FEATURES.md) — the capabilities that funded cohort has and this does not,
+  each with the known-answer test it must pass before it ships.
 - [PAPERS.md](PAPERS.md) — PostEra's six published methods against what this actually does.
 - [IMPLEMENTING_PAPERS.md](IMPLEMENTING_PAPERS.md) — what each of those would take to
   build, what it costs, and the known-answer test it has to pass first.

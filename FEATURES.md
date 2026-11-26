@@ -287,6 +287,14 @@ touch the network.
 **For a customer whose compound structures *are* the asset, that is a feature we have never
 once claimed.**
 
+**Correction, 2026-11-26.** An earlier draft of this section implied on-premises running
+was ours alone. It is not: **Iktos deploys Spaya on a customer's own VPC**, per their
+product page ([LANDSCAPE.md](LANDSCAPE.md)). The claim has to narrow to what is true — we
+run *entirely* locally, with no model provider in the loop at any point, which a SaaS
+platform installed into a VPC does not match. "Nobody else offers on-premises" was an
+unchecked claim of exactly the kind we audit other people for, and it did not survive one
+read of a competitor's page.
+
 **Known-answer test — and this one can be genuinely proven rather than asserted:** run a
 full campaign cycle with the socket layer blocked, and assert it completes. A test that
 fails the moment any module tries to open a connection turns "your molecules never leave

@@ -45,7 +45,7 @@ For comparison work. Plain-language version; the detail for each is further down
 
 **Three of these we already have and have never said:** F12 (our forest matches Chemprop
 at 96× less compute), F13 (the loop makes no network calls), and the examiner itself.
-**One is a defect:** F9. **One is nearly free and nobody else claims it:** F13.
+**One is a defect:** F9. **One is nearly free:** F13 — though not unique, since Iktos deploys Spaya on a customer's own VPC; what is ours is running entirely locally with no model provider in the loop.
 
 And the thing no feature fixes: no compound this loop selected has ever been made.
 

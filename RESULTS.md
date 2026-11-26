@@ -2148,6 +2148,33 @@ reading, a false negative costs the claim. I verified it is not vacuous by addin
 - **It is not a security audit.** It is a check that one specific, checkable thing is
   true, which is the only kind of claim this document makes.
 
+## Which tree produced this
+
+Six sessions were writing to this branch while these numbers were taken, so the result
+names the tree it was computed at. A verdict that cannot say which tree produced it is
+unfalsifiable in the same way a split on row order is: it looks fine and cannot be
+checked.
+
+**Computed at `efd7f98`.** First run at `f4fc402`; re-run at `efd7f98` and reproduced —
+3 cycles, 0 remote hosts contacted, both controls passing.
+
+The re-run was not a formality. The runtime import closure of this experiment is
+
+    dmta, dmta.assay, dmta.campaign, dmta.chem, dmta.egress,
+    dmta.library, dmta.models, dmta.scoring, dmta.select, dmta.store
+
+and `dmta/campaign.py` and `dmta/models.py` both changed between the two commits. So the
+closure moved, the earlier number could not be carried forward on inspection alone, and
+the claim had to be measured again rather than asserted. The module count in the scan
+also moved, 26 to 27, because another session added `dmta/cost.py`; the scan reports it
+as expected because it reaches no network, which is the scan working rather than a
+number drifting.
+
+Measure the closure at *runtime*, not import time. Here the two sets happen to be
+identical, but that is luck: a lazily imported module — one pulled in inside a function
+body rather than at the top of a file — is invisible to an import-time check, and a
+closure measured before the code runs is another number with no denominator.
+
 ## What it licenses us to say
 
 > The Design–Make–Test cycle completes with every non-loopback connection blocked, in a

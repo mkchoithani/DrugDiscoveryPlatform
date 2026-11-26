@@ -265,8 +265,17 @@ def group_by_intermediate(batch: list[Compound]) -> dict:
     steps_each = max((len(c.route) for c in batch), default=1) or 1
     naive = steps_each * len(batch)
     shared = len(groups) + len(batch) if steps_each > 1 else len(batch)
+    # Compounds that came from a measurement rather than from our enumeration carry
+    # no route, so each one keys its own group and nothing is actually shared. The
+    # caller needs to be able to tell that apart from a real parallel plan, and the
+    # compound count has to come from the batch rather than be inferred from the
+    # step arithmetic -- len(groups) equals len(batch) in exactly that case, so any
+    # difference of the two counts collapses to zero and reads as "0 compounds".
     return {
         "groups": list(groups.values()),
+        "n_compounds": len(batch),
+        "n_shared_intermediates": sum(1 for g in groups.values() if len(g["members"]) > 1),
+        "routed": steps_each > 1,
         "naive_steps": naive,
         "shared_steps": shared,
         "steps_saved": naive - shared,

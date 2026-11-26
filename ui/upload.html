@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hara Vara — Evaluate a programme</title>
+<link rel="stylesheet" href="./style.css?v=1795569712">
+<style>
+  .wrap { max-width: 880px; }
+  .drop {
+    border: 2px dashed var(--md-outline); border-radius: var(--md-shape-l); padding: 54px 28px;
+    text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+    background: var(--panel);
+  }
+  .drop:hover, .drop.over { border-color: var(--design); background: var(--panel2); }
+  .drop h3 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+  .drop p { margin: 0; color: var(--dim); font-size: 13px; }
+  .drop input { display: none; }
+  .step { display: none; }
+  .step.on { display: block; }
+  .map { display: grid; grid-template-columns: 150px 1fr; gap: 10px 16px; align-items: center; margin: 16px 0; }
+  .map label { color: var(--dim); font-size: 13px; }
+  .map select, .map input { width: 100%; }
+  .peek { overflow: auto; max-height: 190px; margin: 14px 0; }
+  .peek table { font-size: 12px; }
+  .peek td { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
+  .bar { height: 4px; background: var(--panel2); border-radius: 2px; overflow: hidden; margin: 16px 0 10px; }
+  .bar i { display: block; height: 100%; width: 35%; background: var(--design); border-radius: 2px;
+           animation: slide 1.3s ease-in-out infinite; }
+  @keyframes slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+  .stage { color: var(--dim); font-size: 13px; }
+  .err { border-left: 4px solid var(--md-error); background: var(--md-error-container);
+         color: var(--md-on-error-container); padding: 14px 18px;
+         border-radius: 0 var(--md-shape-s) var(--md-shape-s) 0; margin: 16px 0; }
+  .err code { display: block; margin-top: 8px; font-size: 11px; opacity: .8; white-space: pre-wrap; }
+  iframe { width: 100%; height: 76vh; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .hint { color: var(--faint); font-size: 12.5px; line-height: 1.55; }
+</style>
+</head>
+<body>
+<div class="appbar">
+  <a class="brand" href="./index.html">
+    <span class="brand-mark">HV</span>
+    <span class="brand-text">
+      <span class="brand-name">Hara Vara</span>
+      <span class="brand-sub">Drug discovery platform</span>
+    </span>
+  </a>
+  <nav>
+    <a href="./index.html">Design · Make · Test</a>
+    <a href="./upload.html" aria-current="page">Evaluate a programme</a>
+    <a href="./viewer.html">Structure viewer</a>
+  </nav>
+  <span class="spacer"></span>
+</div>
+
+<header>
+  <div>
+    <h1>Evaluate a programme</h1>
+    <p>Upload compounds and results you already have. The system replays the programme
+       without being shown the answers, and reports how many experiments it would have
+       needed to reach your best compounds — including when it would not have helped.</p>
+  </div>
+  
+</header>
+
+<main class="wrap">
+
+  <section class="step on" id="step1">
+    <div class="drop" id="drop">
+      <input type="file" id="file" accept=".csv,text/csv">
+      <h3>Drop a CSV here, or click to choose</h3>
+      <p>Needs a structure column (SMILES) and a result column. A date column makes the
+         report considerably more useful.</p>
+    </div>
+    <p class="hint" style="margin-top:16px">
+      No file to hand? Try one of these real datasets:
+      <a href="#" data-sample="acme_egfr_programme.csv">a messy EGFR export</a> ·
+      <a href="#" data-sample="moonshot_programme.csv">COVID Moonshot</a> ·
+      <a href="#" data-sample="osm_series.csv">Open Source Malaria</a>
+    </p>
+    <p class="hint" style="margin-top:10px">
+      Nothing leaves this machine — the file is read by the local server, evaluated, and deleted.
+      Messy exports are expected: salts, duplicates, censored values like “&gt; 10000”, µM or nM.
+    </p>
+  </section>
+
+  <section class="step" id="step2">
+    <div class="card">
+      <h2><i class="dot d-design"></i>Confirm the columns</h2>
+      <p class="hint" id="fileInfo"></p>
+      <div class="map">
+        <label for="cSmiles">Structure (SMILES)</label><select id="cSmiles"></select>
+        <label for="cValue">Result / potency</label><select id="cValue"></select>
+        <label for="cUnits">Units</label>
+        <select id="cUnits">
+          <option value="nM">nM (nanomolar)</option>
+          <option value="uM">µM (micromolar)</option>
+          <option value="log">already a p-scale (pIC50, pChEMBL)</option>
+        </select>
+        <label for="cId">Compound ID <span class="muted">(optional)</span></label><select id="cId"></select>
+        <label for="cDate">Date <span class="muted">(optional)</span></label><select id="cDate"></select>
+        <label for="cCustomer">Report heading</label>
+        <input type="text" id="cCustomer" placeholder="e.g. Programme A, 2023–2025">
+      </div>
+      <div class="peek" id="peek"></div>
+      <div class="row">
+        <button id="run">Run the evaluation</button>
+        <button id="back" class="ghost">Choose another file</button>
+        <span class="hint" id="timeHint"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="step" id="step3">
+    <div class="card">
+      <h2><i class="dot d-make"></i>Working</h2>
+      <div class="bar"><i></i></div>
+      <p class="stage" id="stage">starting…</p>
+      <p class="hint">Cleaning the file, training models on three different splits, then
+         replaying the programme one batch at a time. Usually under a minute.</p>
+    </div>
+  </section>
+
+  <section class="step" id="step4">
+    <div class="row" style="margin-bottom:12px">
+      <button id="again" class="ghost">Evaluate another file</button>
+      <a id="openReport" class="btn ghost" target="_blank" rel="noopener">Open in a new tab</a>
+      <span class="hint">Use your browser’s Print → Save as PDF to share it.</span>
+    </div>
+    <iframe id="report" title="Evaluation report"></iframe>
+  </section>
+
+  <div id="error"></div>
+</main>
+
+<script src="./upload.js?v=1795569712"></script>
+</body>
+</html>

@@ -81,6 +81,14 @@ that can rank a chemotype the model has never seen — exactly where our time sp
   `NVIDIA GeForce RTX 4090` at **$0.34/hr community**, that is about **$8**.
 - **Boltz-2 on a 1,000-compound shortlist:** ~5.5 GPU-hours at 20 s each. On
   `NVIDIA L40S` (48 GB) at **$0.79/hr community**, about **$4.50**.
+  **Correction (2026-11-24):** recommending Boltz-2 here was premature. Boe *et al.*,
+  *Digital Discovery* 2026, 5, 5001 (DOI 10.1039/d6dd00226a) summarise evidence that
+  Boltz-2's affinity predictions are **insensitive to pose quality and to mutations of
+  key pocket residues**, and degrade only slightly when pose information is ablated
+  entirely; a LIT-PCBA-derived benchmark found it unable to pair active compounds to
+  the correct target. Treat a Boltz-2 affinity number as unvalidated until it has
+  passed the same known-answer test docking failed. Their proposed alternative —
+  predicted pharmacophore maps — is cheaper and explicitly designed around these biases.
 - Our current 924-compound library would dock in **minutes**.
 
 Docking is far cheaper than people assume. The expensive part is not the GPU.

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Hara Vara — the examined platform</title>
+<style>
+  @page { size: 297mm 167mm; margin: 0; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin:0; padding:0; background:#fff; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+         color:#14191f; font-size:11.5pt; line-height:1.45; }
+
+  .slide { width:297mm; height:167mm; padding:16mm 18mm 13mm 18mm;
+           page-break-after:always; position:relative; overflow:hidden;
+           display:flex; flex-direction:column; }
+  .slide:last-child { page-break-after:auto; }
+
+  .kicker { font-size:8.5pt; letter-spacing:.16em; text-transform:uppercase;
+            color:#7d8894; font-weight:700; margin:0 0 3mm 0; }
+  h1 { font-size:30pt; line-height:1.1; margin:0 0 5mm 0; font-weight:700; letter-spacing:-.015em; }
+  h2 { font-size:21pt; line-height:1.15; margin:0 0 6mm 0; font-weight:700; letter-spacing:-.01em; }
+  h2 .q { color:#9aa4b0; font-weight:400; }
+  .lede { font-size:13pt; color:#3d4854; max-width:210mm; margin:0 0 6mm 0; }
+  .body { flex:1; min-height:0; }
+  .foot { position:absolute; left:18mm; right:18mm; bottom:7mm;
+          display:flex; justify-content:space-between;
+          font-size:8pt; color:#9aa4b0; border-top:1px solid #e6eaee; padding-top:2.5mm; }
+
+  /* cover */
+  .cover { background:#0f1b2a; color:#fff; justify-content:center; }
+  .cover h1 { font-size:46pt; margin-bottom:6mm; }
+  .cover .kicker { color:#6fa8dc; }
+  .cover .sub { font-size:14.5pt; color:#b9c6d4; max-width:190mm; line-height:1.5; }
+  .cover .rule { width:34mm; height:3px; background:#6fa8dc; margin:8mm 0 7mm 0; }
+  .cover .foot { color:#5d6e82; border-top-color:#22323f; }
+
+  table { width:100%; border-collapse:collapse; font-size:10.5pt; }
+  th { text-align:left; font-size:8pt; letter-spacing:.09em; text-transform:uppercase;
+       color:#7d8894; font-weight:700; padding:0 4mm 2mm 0; border-bottom:1.5px solid #d4dae1; }
+  td { padding:2.6mm 4mm 2.6mm 0; border-bottom:1px solid #edf0f3; vertical-align:top; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; padding-right:6mm; }
+  table.dense td { padding-top:1.6mm; padding-bottom:1.6mm; }
+  table.tight td { padding-top:1.15mm; padding-bottom:1.15mm; font-size:10pt; }
+  tr.hero td { font-weight:700; color:#0b5d3b; }
+  tr.dead td { color:#9aa4b0; }
+  .tag { display:inline-block; font-size:8pt; font-weight:700; padding:.8mm 2.2mm;
+         border-radius:2px; letter-spacing:.04em; }
+  .pass { background:#dff2e5; color:#0b5d3b; }
+  .fail { background:#f1f3f5; color:#78838f; }
+  .run  { background:#fff1d6; color:#8a5a00; }
+  .tie  { background:#e4ecf5; color:#28506f; }
+  .eval { background:#ede4f5; color:#4a2a6f; }
+  .todo { background:#f1f3f5; color:#78838f; border:1px dashed #c7cfd6; }
+
+  .cols { display:flex; gap:12mm; }
+  .cols > div { flex:1; }
+  .card { border:1px solid #e1e6ea; border-radius:3px; padding:6mm 6mm 5mm 6mm; background:#fafbfc; }
+  .card h3 { margin:0 0 2.5mm 0; font-size:12pt; }
+  .card p { margin:0; color:#4a5663; font-size:10.5pt; }
+
+  .big { display:flex; gap:10mm; margin:2mm 0 7mm 0; }
+  .big > div { flex:1; border-left:3px solid #0b5d3b; padding-left:5mm; }
+  .big .n { font-size:33pt; font-weight:700; line-height:1; letter-spacing:-.02em; }
+  .big .l { font-size:9.5pt; color:#6b7684; margin-top:2mm; line-height:1.35; }
+  .big > div.grey { border-left-color:#c3cad2; }
+  .big > div.grey .n { color:#7d8894; }
+
+  ul { margin:0 0 4mm 0; padding-left:5.5mm; }
+  li { margin-bottom:2.6mm; }
+  .note { font-size:9.5pt; color:#6b7684; border-left:2px solid #d4dae1;
+          padding-left:4mm; margin-top:auto; }
+  .quote { font-size:15pt; line-height:1.4; color:#14191f; max-width:200mm; }
+  code { font-family:"SF Mono",Menlo,monospace; font-size:9.5pt; background:#f1f3f5;
+         padding:.4mm 1.4mm; border-radius:2px; }
+  .step { display:flex; gap:0; margin:4mm 0 8mm 0; }
+  .step > div { flex:1; padding:5mm 4mm; border:1px solid #e1e6ea; border-right:none;
+                text-align:center; background:#fafbfc; }
+  .step > div:last-child { border-right:1px solid #e1e6ea; }
+  .step .t { font-weight:700; font-size:12pt; }
+  .step .d { font-size:9pt; color:#6b7684; margin-top:1.5mm; }
+</style></head><body>
+
+<!-- 1 COVER -->
+<section class="slide cover">
+  <p class="kicker">Drug discovery platform · internal review</p>
+  <h1>Hara Vara</h1>
+  <div class="rule"></div>
+  <p class="sub">A closed-loop platform that tells a chemist which molecules to make next —
+  and refuses to ship any capability that has not beaten a test whose answer we already knew.</p>
+  <div class="foot"><span>26 November 2026</span><span>Status: 3 kept · 3 rejected · 4 ties · 1 parked</span></div>
+</section>
+
+<!-- 2 PROBLEM -->
+<section class="slide">
+  <p class="kicker">The problem</p>
+  <h2>Most of a drug programme is spent making molecules that do not work</h2>
+  <div class="body">
+    <p class="lede">A medicinal chemist can make a few hundred compounds a year. The space of
+    plausible molecules is effectively infinite. Every wrong choice costs weeks of lab time.</p>
+    <div class="cols">
+      <div class="card"><h3>What chemists need</h3>
+        <p>Not a prediction of everything. A ranked shortlist of the next 24 compounds worth
+        the bench time, and an honest statement of how much to trust it.</p></div>
+      <div class="card"><h3>What the market sells</h3>
+        <p>Accuracy figures from random train/test splits — the one condition that never holds
+        in production, because tomorrow's chemistry is not a random sample of today's.</p></div>
+    </div>
+    <div class="note" style="margin-top:12mm">We measured that gap on our own model. On a random
+    split it scores &rho;&nbsp;0.87. On the split that matches production it scores
+    <strong>&rho;&nbsp;0.11</strong> &mdash; same model, same data, same day. Both numbers are
+    real. Only one of them is a forecast of anything.</div>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>2</span></div>
+</section>
+
+<!-- 3 THE LOOP -->
+<section class="slide">
+  <p class="kicker">What we built</p>
+  <h2>A closed design–make–test–analyse loop</h2>
+  <div class="body">
+    <div class="step">
+      <div><div class="t">Design</div><div class="d">Model ranks the library on 8 objectives</div></div>
+      <div><div class="t">Make</div><div class="d">Chemist reviews and approves the batch</div></div>
+      <div><div class="t">Test</div><div class="d">Assay returns measured potency</div></div>
+      <div><div class="t">Analyse</div><div class="d">Model retrains; the loop tightens</div></div>
+    </div>
+    <p class="lede">Running today on 9,000 real compounds from public assay data (ChEMBL),
+    across four unrelated targets: two kinases, a GPCR and a zinc metalloenzyme.</p>
+    <ul>
+      <li>Multi-parameter scoring — potency, drug-likeness, synthetic accessibility, size, diversity</li>
+      <li>Six selection strategies, benchmarked against each other rather than assumed</li>
+      <li>Every measurement stored, so the loop is reproducible from the database alone</li>
+    </ul>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>3</span></div>
+</section>
+
+<!-- 4 DIFFERENTIATOR -->
+<section class="slide">
+  <p class="kicker">The differentiator</p>
+  <h2>The product is the examiner, not the model</h2>
+  <div class="body">
+    <p class="quote">Any lab can claim a model works. We hide the answers, let the software
+    guess, and compare. <strong>Nothing ships until it beats a known answer.</strong></p>
+    <div class="big" style="margin-top:9mm">
+      <div><div class="n">9</div><div class="l">capabilities put through the examination</div></div>
+      <div><div class="n">3</div><div class="l">passed and kept</div></div>
+      <div class="grey"><div class="n">3</div><div class="l">failed and were deleted</div></div>
+      <div class="grey"><div class="n">5</div><div class="l">of our own published claims corrected</div></div>
+    </div>
+    <div class="note">Three rejections is the product working &mdash; each one a feature a
+    competitor could have shipped on a plausible-looking number. The two that passed are the
+    loop itself, the handling of compounds too weak to measure, and now lipophilicity. Four
+    came out <em>ties</em>: one we had been calling a rejection, one we had never tested on the
+    task its authors validated, one where a tie on ranking hid a loss on error, and one whose
+    signal is real and still buys us nothing. Nine capabilities, eleven claims &mdash; some
+    turned out to be two claims wearing one verdict. One more is parked unfinished rather than
+    counted as either.</div>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>4</span></div>
+</section>
+
+<!-- 5 HEADLINE RESULT -->
+<section class="slide">
+  <p class="kicker">The one result we stand behind</p>
+  <h2>2.37× the base rate of finding potent compounds, on real assay data</h2>
+  <div class="body">
+    <p class="lede">Retrospective active learning: the library is every real compound for the
+    target, and a measurement is revealed <em>only</em> when the loop chooses to make it.
+    10 cycles × 24 compounds = 240 made out of ~9,000.</p>
+    <table>
+      <tr><th>Selection strategy</th><th class="num">EGFR</th><th class="num">VEGFR2</th>
+          <th class="num">CA II</th><th class="num">μ-opioid</th></tr>
+      <tr class="hero"><td>greedy</td><td class="num">2.37×</td><td class="num">1.74×</td>
+          <td class="num">2.18×</td><td class="num">1.97×</td></tr>
+      <tr><td>expected improvement</td><td class="num">2.02×</td><td class="num">1.62×</td>
+          <td class="num">1.92×</td><td class="num">1.99×</td></tr>
+      <tr><td>UCB (β = 1)</td><td class="num">1.28×</td><td class="num">1.31×</td>
+          <td class="num">1.23×</td><td class="num">1.11×</td></tr>
+      <tr class="dead"><td>random</td><td class="num">1.02×</td><td class="num">0.87×</td>
+          <td class="num">0.98×</td><td class="num">0.99×</td></tr>
+    </table>
+    <div class="note" style="margin-top:6mm"><strong>The harness checks out.</strong> Random
+    selection recovers each library's own base rate within noise on all four targets — a
+    benchmark quietly rigged in the loop's favour would fail here first. The ordering is
+    identical on all four. The compounds chosen are also more drug-like: mean QED 0.76–0.81
+    against 0.52–0.57 for random.</div>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>5</span></div>
+</section>
+
+<!-- 6 THE HONEST SPLIT -->
+<section class="slide">
+  <p class="kicker">What the examiner found</p>
+  <h2>The number vendors quote is the number that does not matter</h2>
+  <div class="body">
+    <p class="lede">Spearman ρ between prediction and measurement, same model, three ways of
+    splitting the data.</p>
+    <table>
+      <tr><th>Split</th><th class="num">EGFR</th><th class="num">VEGFR2</th><th class="num">CA II</th>
+          <th class="num">μ-opioid</th><th>What it actually tests</th></tr>
+      <tr class="dead"><td>random</td><td class="num">0.87</td><td class="num">0.84</td>
+          <td class="num">0.78</td><td class="num">0.85</td><td>Nothing. Analogues of the training set</td></tr>
+      <tr><td><strong>scaffold</strong></td><td class="num">0.81</td><td class="num">0.78</td>
+          <td class="num">0.56</td><td class="num">0.73</td><td>Chemotypes never seen before</td></tr>
+      <tr class="hero"><td>time</td><td class="num">0.11</td><td class="num">0.44</td>
+          <td class="num">0.42</td><td class="num">0.36</td><td>Future compounds — what production faces</td></tr>
+    </table>
+    <div class="note" style="margin-top:6mm">The confidence estimate degrades the same way
+    (mean ρ 0.44 → 0.36 → 0.12) and <strong>inverts entirely on μ-opioid</strong>: the model is
+    most certain exactly where it is most wrong. That single finding changed the product — the
+    default exploration parameter was cut from 1.0 to 0.25, and the tool now recommends a value
+    from the <em>worst</em> split rather than the best. <strong>Three candidate fixes have now
+    been measured and none works:</strong> docking failed four times, a graph neural net tied,
+    and cell-painting morphology — the one that was different in kind — tied on scaffolds.
+    <strong>That third one does not close the question:</strong> the image data carries no dates,
+    so it could not be tested on the time split, which is the column this slide is about. We
+    would rather say the fix is untested than imply it failed, or that one exists.</div>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>6</span></div>
+</section>
+
+<!-- 7 REJECTED -->
+<section class="slide">
+  <p class="kicker">What we deleted, and what only tied</p>
+  <h2>Three capabilities failed the examination <span class="q">— and two only tied</span></h2>
+  <div class="body">
+    <table class="dense">
+      <tr><th>Capability</th><th>Published promise</th><th>What we measured</th><th>Outcome</th></tr>
+      <tr><td><strong>Docking</strong> (3D pose scoring)</td><td>Physics ranks unseen chemotypes</td>
+          <td>No signal on potency (3 structures + ensemble) or on hit finding</td><td><span class="tag fail">rejected ×4</span></td></tr>
+      <tr><td><strong>Chemprop</strong> (graph neural net)</td><td>Field-standard strong baseline</td>
+          <td>24 programmes: paired CI [−0.097, +0.024] <em>contains zero</em>; gap plateaus
+          at −0.034 from n≈2,000</td><td><span class="tag tie">tie — forest kept on cost</span></td></tr>
+      <tr><td><strong>RMT</strong> as our potency model</td><td>PNAS 2019 — denoise the covariance</td>
+          <td>ρ 0.389 against the forest's 0.562; re-run as the screen its authors validated,
+          −0.036 AUC, CI [−0.053, −0.014]</td><td><span class="tag fail">rejected</span></td></tr>
+      <tr><td><strong>RMT</strong> cleaning, the paper's own claim</td><td>Cleaning beats no cleaning</td>
+          <td>9 LIT-PCBA screens, cleaned against the identical uncleaned path: paired CI
+          [−0.028, +0.006] <em>contains zero</em></td><td><span class="tag tie">tie — untested until now</span></td></tr>
+      <tr><td><strong>Pharmacophore maps</strong></td><td>Cheaper and less biased than docking</td>
+          <td>1.24× enrichment — beaten by <em>counting heavy atoms</em> (1.37×)</td>
+          <td><span class="tag fail">rejected ×3</span></td></tr>
+      <tr><td><strong>De novo generation</strong></td><td>Design molecules from fragments</td>
+          <td>46 molecules in 210 s, none lead-like</td><td><span class="tag fail">parked</span></td></tr>
+    </table>
+    <div class="note" style="margin-top:3mm">Total cost: a few hours of CPU, no lab money.
+    <strong>Both ties are corrections to us.</strong> Chemprop we had called rejected; a paired
+    interval made it a tie, and the forest stays on cost, not a win. RMT we had rejected on
+    potency prediction, a task its authors never offered it for; re-run as the screen they did
+    validate, the model still loses, but the cleaning ties &mdash; one word covering two
+    claims.</div>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>7</span></div>
+</section>
+
+<!-- 8 WE AUDITED OURSELVES -->
+<section class="slide">
+  <p class="kicker">We examined ourselves too</p>
+  <h2>Four of our own findings did not survive <span class="q">— one was shipping</span></h2>
+  <div class="body">
+    <div class="cols">
+      <div class="card"><h3>2.75× → 0.71×</h3>
+        <p>We re-ran our loop on PostEra's published DEL-simulator landscape instead of our own.
+        Performance collapsed. <strong>Our simulator was roughly 5× too easy.</strong> The README
+        now labels 2.75× an upper bound. The real-data 2.37× never used the simulator and stands.</p></div>
+      <div class="card"><h3>Three verdict bugs</h3>
+        <p>The code that decides pass/fail had three errors — <strong>two of them approving a
+        method I expected to win.</strong> A verdict function encodes its author's expectations
+        and is no safeguard against them.</p></div>
+      <div class="card"><h3>A metric with no resolution</h3>
+        <p>"3.77 versus 3.74" read as a difference. Converted back to molecules it was
+        <strong>10.0 against 9.9, out of 10</strong> — the metric had saturated. The suite now
+        refuses a saturated column.</p></div>
+      <div class="card"><h3>A default that was shipping</h3>
+        <p>Our scoring profile marked down <strong>138 approved antibacterials</strong> 19.6
+        points more often than other approved drugs, CI [+10.8, +28.7]. Daptomycin scored
+        <strong>exactly zero</strong>. Those drugs exist, so the error is ours — and it had
+        been in every campaign since the profile was written.</p></div>
+    </div>
+    <div class="note" style="margin-top:6mm">What caught all four was the same discipline:
+    <strong>turn every ratio back into a count of actual molecules</strong>, and attach a
+    p-value. A "win" of 7 actives against 6 is p = 0.65. It is not a win.</div>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>8</span></div>
+</section>
+
+<!-- 9 THE DECISIVE TEST -->
+<section class="slide">
+  <p class="kicker">The decisive test &middot; resolved 25 November</p>
+  <h2>Docking looked like our first win. It was the benchmark, not the physics.</h2>
+  <div class="body">
+    <p class="lede">On DUD-E, docking beat molecular size (AUC 0.629 vs 0.527). But
+    DUD-E&rsquo;s &ldquo;inactives&rdquo; were never tested in a lab, so we re-ran it on
+    LIT-PCBA, where every inactive is a measured one.</p>
+    <table>
+      <tr><th>Method</th><th class="num">AUC</th><th class="num">EF 1%</th>
+          <th class="num">Actives in top 21</th><th class="num">P by chance</th></tr>
+      <tr class="hero"><td>2D forest (fingerprints)</td><td class="num">0.723</td>
+          <td class="num">6.42</td><td class="num">5</td><td class="num">0.0008</td></tr>
+      <tr><td>docking (smina, 4QTE)</td><td class="num">0.622</td><td class="num">1.28</td>
+          <td class="num">1</td><td class="num">0.55</td></tr>
+      <tr class="dead"><td>heavy atom count</td><td class="num">0.577</td><td class="num">0.00</td>
+          <td class="num">0</td><td class="num">1.00</td></tr>
+      <tr class="dead"><td>pharmacophore field</td><td class="num">0.551</td><td class="num">2.57</td>
+          <td class="num">2</td><td class="num">0.18</td></tr>
+    </table>
+    <p style="margin-top:5mm"><strong>Docking&rsquo;s early enrichment is one molecule</strong>
+    &mdash; what random selection produces 55% of the time. Its AUC edge over counting atoms is
+    <strong>+0.045, 95% CI [&minus;0.013, +0.099]</strong>: the interval contains zero. On DUD-E
+    that gap was +0.102, so about half of it was decoy bias and the rest is noise. Docking is
+    also <em>significantly worse</em> than the plain 2D model.</p>
+    <div class="note" style="margin-top:5mm"><strong>Where this test is weak, stated
+    plainly:</strong> with 77 actives the interval cannot exclude a gap as large as
+    DUD-E&rsquo;s. &ldquo;Not significant&rdquo; is not &ldquo;shown to be zero&rdquo;. The
+    verdict rests on the enrichment being a flat chance result rather than a near miss &mdash;
+    and on this being the fourth independent test docking has failed.</div>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>9</span></div>
+</section>
+
+<!-- 10 WHAT IT TAKES -->
+<section class="slide">
+  <p class="kicker">What we still need</p>
+  <h2>The blockers are not compute</h2>
+  <div class="body">
+    <table>
+      <tr><th>Next capability</th><th>Compute cost</th><th>What it is actually blocked on</th></tr>
+      <tr><td>Foundation-model fine-tune (ChemFM)</td><td>~$5 of GPU</td>
+          <td>Nothing. A neural net already failed to beat the forest at any data size we reach, so this is a long shot we will measure anyway</td></tr>
+      <tr><td>Structure-based scoring in production</td><td>~$10</td>
+          <td><strong>A structural chemist</strong> to choose the conformation and binding site</td></tr>
+      <tr><td>Synthesis routes (retrosynthesis)</td><td>CPU, free</td>
+          <td>A route model we trust, and a chemist to accept or reject each route</td></tr>
+      <tr><td>Billion-scale candidate pools</td><td>$50–200 per campaign</td>
+          <td>An Enamine REAL or equivalent catalogue licence</td></tr>
+      <tr><td><strong>Actually making molecules</strong></td><td>—</td>
+          <td><strong>A chemist who will look at the batch and say "no, not that one"</strong></td></tr>
+    </table>
+    <div class="note" style="margin-top:7mm">Published practitioner guidance is that batch size
+    should match <em>reviewer capacity</em>, not what the algorithm can generate. Every remaining
+    step needs human chemistry judgement, not a bigger GPU. That is the honest bottleneck.</div>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>10</span></div>
+</section>
+
+<!-- 11 ROADMAP -->
+<section class="slide">
+  <p class="kicker">The roadmap &middot; status at end of 26 November</p>
+  <h2>What is built, what is being measured, and what is only a placeholder</h2>
+  <div class="body">
+    <table class="dense tight">
+      <tr><th>Capability</th><th>Why it is on the list</th><th>Status</th></tr>
+      <tr class="hero"><td><strong>ADME — logD</strong></td>
+          <td>First endpoint beyond potency, which is not what programmes die on</td>
+          <td><span class="tag pass">shipped</span></td></tr>
+      <tr class="hero"><td><strong>Class-specific property profiles</strong></td>
+          <td>Our one profile assumed every drug is an oral pill</td>
+          <td><span class="tag pass">shipped</span></td></tr>
+      <tr><td>ADME — solubility</td><td>Ties a 12-descriptor ridge and loses on error</td>
+          <td><span class="tag tie">measured — ridge ships instead</span></td></tr>
+      <tr><td><strong>Cell-painting phenotype</strong></td>
+          <td>38 proteins: morphology is real, +0.113 over heavy-atom count, and adds nothing
+          fused, −0.002 [−0.012, +0.008]. <strong>No dates in the data, so the time split could
+          not be run</strong></td>
+          <td><span class="tag tie">tie on scaffolds</span></td></tr>
+      <tr class="hero"><td><strong>Molecules never leave the machine</strong></td>
+          <td>A full cycle runs with every remote address blocked; the guard is proven to fire</td>
+          <td><span class="tag pass">shipped</span></td></tr>
+      <tr class="hero"><td><strong>Cost per answer</strong></td>
+          <td>Every report now carries what the answer cost, beside the answer</td>
+          <td><span class="tag pass">shipped</span></td></tr>
+      <tr><td>Auditable trail · manufacturability · trade-off view · scope limits</td>
+          <td>The trail gates any pilot; the rest are cheap and may lose to a simpler baseline</td>
+          <td><span class="tag todo">not started</span></td></tr>
+      <tr class="dead"><td>Peptides, antibodies · lab-software connectors</td>
+          <td>A second platform, and someone else's distribution</td>
+          <td><span class="tag fail">decided against</span></td></tr>
+    </table>
+    <div class="note" style="margin-top:3mm"><strong>Four shipped in one day; two of them were
+    properties we already had and had never claimed</strong> — the cost advantage and the data
+    isolation. Two more were measured and did not earn a place: solubility ships a ridge
+    instead, and cell painting carries real signal that buys nothing once fused — on scaffolds
+    only, so the question it was raised to answer is still open.</div>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>11</span></div>
+</section>
+
+<!-- 12 ASK -->
+<section class="slide">
+  <p class="kicker">The ask</p>
+  <h2>What we want from this review</h2>
+  <div class="body">
+    <div class="cols">
+      <div class="card"><h3>1 · A chemist</h3>
+        <p>Someone who will review a proposed batch of 24 and veto compounds. Without this the
+        loop cannot close on real chemistry, and no amount of compute substitutes.</p></div>
+      <div class="card"><h3>2 · A target</h3>
+        <p>One internal programme with assay data we can run the examiner against. Public data
+        got us this far; it cannot tell us whether this works on <em>your</em> chemistry.</p></div>
+      <div class="card"><h3>3 · Agreement on the standard</h3>
+        <p>That a capability ships only when it beats a known answer, with the molecule count
+        and the p-value shown. This is slower. It is the whole product.</p></div>
+    </div>
+    <p class="quote" style="margin-top:12mm">We have deleted three of our own features,
+    demoted two from "rejected" to a tie, and corrected five of our own claims.
+    <strong>That is the evidence that the numbers we do report mean something.</strong></p>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>12</span></div>
+</section>
+
+<!-- 13 APPENDIX -->
+<section class="slide">
+  <p class="kicker">Appendix</p>
+  <h2>Where the detail lives</h2>
+  <div class="body">
+    <table>
+      <tr><th>Document</th><th>What it contains</th></tr>
+      <tr><td><code>RESULTS.md</code></td><td>Fifteen sections, every benchmark with its command line,
+        its numbers, and what each one does <em>not</em> prove. Includes every rejection in full.</td></tr>
+      <tr><td><code>PAPERS.md</code></td><td>The six published methods we worked from, and where we
+        deviate from each, with reasons.</td></tr>
+      <tr><td><code>IMPLEMENTING_PAPERS.md</code></td><td>Per-paper implementation plan and outcome.</td></tr>
+      <tr><td><code>ROADMAP.md</code></td><td>Foundation models, docking and scale: live GPU prices,
+        what each stage costs, and what it must prove before the next is funded.</td></tr>
+      <tr><td><code>tests/</code></td><td>75 tests. Several exist specifically to stop a bug we
+        already shipped once from returning.</td></tr>
+    </table>
+    <div class="note" style="margin-top:8mm">Repository: <code>mkchoithani/DrugDiscoveryPlatform</code>,
+    branch <code>hara-vara-platform</code>. Every figure in this deck is reproducible from a
+    command line printed in <code>RESULTS.md</code>.</div>
+  </div>
+  <div class="foot"><span>Hara Vara · 26 November 2026</span><span>13</span></div>
+</section>
+
+</body></html>

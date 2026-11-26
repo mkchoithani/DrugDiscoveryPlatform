@@ -126,6 +126,8 @@ def clean(rows: list[dict], max_replicate_spread: float = 1.0,
         kept.setdefault(key, {
             "inchikey": key, "smiles": smiles,
             "chembl_id": r.get("molecule_chembl_id"),
+            "document": r.get("document_chembl_id") or "",
+            "assay": r.get("assay_chembl_id") or "",
         })
 
     out = []
@@ -168,7 +170,7 @@ def build_dataset(target: str, standard_type: str = "IC50", max_records: int = 2
         raise RuntimeError(f"no usable data for {target}/{standard_type}")
     with open(path, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=["chembl_id", "inchikey", "smiles", "pchembl",
-                                           "n_measurements", "year"])
+                                           "n_measurements", "year", "document", "assay"])
         w.writeheader()
         w.writerows(rows)
     if verbose:
@@ -193,15 +195,18 @@ def load_compounds(target: str, standard_type: str = "IC50", limit: int | None =
             if limit and i >= limit:
                 break
             smiles = row["smiles"]
-            out.append(Compound(
+            comp = Compound(
                 id=row["chembl_id"], smiles=smiles, inchikey=row["inchikey"],
                 scaffold_id=murcko(smiles), intermediate_key=row["chembl_id"],
                 intermediate_smiles=smiles, route=[], desc=descriptors(smiles), alerts=[],
                 overall_yield=1.0, route_confidence=None, cost=0.0,
                 lead_days=0,
-            ))
-            out[-1].truth = float(row["pchembl"])          # revealed only when "made"
-            out[-1].year = int(row["year"]) if row["year"] else None
+            )
+            comp.truth = float(row["pchembl"])             # revealed only when "made"
+            comp.year = int(row["year"]) if row["year"] else None
+            comp.document = row.get("document") or ""
+            comp.assay = row.get("assay") or ""
+            out.append(comp)
     return out
 
 
@@ -234,3 +239,48 @@ def dataset_summary(compounds: list[Compound]) -> dict:
         "year_range": (min(years), max(years)) if years else None,
         "mean_mw": round(sum(c.desc["mw"] for c in compounds) / len(compounds), 1),
     }
+
+
+# ------------------------------------------------- programmes within a target
+
+def programmes(target: str, standard_type: str = "IC50", min_size: int = 40,
+               max_programmes: int | None = None) -> list[dict]:
+    """Split a target's data into single-paper campaigns.
+
+    One ChEMBL document is usually one medicinal-chemistry paper: a single team
+    optimising a single series. That is far closer to a live programme than the
+    whole target, which is thousands of unrelated compounds from hundreds of groups
+    and reads as a scatter rather than a campaign.
+    """
+    from collections import defaultdict
+    compounds = load_compounds(target, standard_type)
+    if compounds and not any(getattr(c, "document", "") for c in compounds):
+        # A cache written before paper ids were kept yields zero programmes and no
+        # error — exactly the silent emptiness worth refusing to return.
+        raise RuntimeError(
+            f"the cached dataset for {target} has no paper ids, so it cannot be split "
+            f"into programmes. Re-fetch it:\n"
+            f"    python3 -m dmta.cli chembl-fetch --target {target} --refresh")
+    by_doc: dict[str, list] = defaultdict(list)
+    for c in compounds:
+        if getattr(c, "document", ""):
+            by_doc[c.document].append(c)
+
+    out = []
+    for doc, members in by_doc.items():
+        if len(members) < min_size:
+            continue
+        values = [m.truth for m in members]
+        years = [m.year for m in members if m.year]
+        out.append({
+            "document": doc,
+            "target": target,
+            "n": len(members),
+            "scaffolds": len({m.scaffold_id for m in members}),
+            "spread": round(max(values) - min(values), 2),
+            "median": round(sorted(values)[len(values) // 2], 2),
+            "year": min(years) if years else None,
+            "compounds": members,
+        })
+    out.sort(key=lambda d: -d["n"])
+    return out[:max_programmes] if max_programmes else out

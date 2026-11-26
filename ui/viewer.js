@@ -12,10 +12,10 @@ const state = {
 };
 
 const COLOURS = {
-  protein: '#8b98a5',
-  crystal: '#e0af68',
-  pose: '#9ece6a',
-  surface: '#7aa2f7',
+  protein: '#9AA69F',   // muted grey-green ribbons
+  crystal: '#E0A32E',   // the ligand from the crystal structure
+  pose: '#58D68D',      // the docked pose
+  surface: '#5FA8A0',   // pocket surface
 };
 
 // --- geometry helpers: 3Dmol's `within` selector did not match across models,
@@ -58,7 +58,7 @@ async function api(path) {
 // ---------------------------------------------------------------- bootstrap
 
 async function boot() {
-  state.viewer = $3Dmol.createViewer($('gl'), { backgroundColor: '#090d13', antialias: true });
+  state.viewer = $3Dmol.createViewer($('gl'), { backgroundColor: '#0E1512', antialias: true });
   await loadStructure(state.pdb);
   await loadDockedList();
 }

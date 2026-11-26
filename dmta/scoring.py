@@ -96,8 +96,54 @@ DOCKING_OBJECTIVE = Objective(
 
 CHEMBL_DOCKING_PROFILE: list[Objective] = CHEMBL_PROFILE + [DOCKING_OBJECTIVE]
 
+# For a retrospective replay scored on potency: the objective must match the
+# question being asked. Judging a loop on potency while it optimises drug-likeness
+# marks it down for obeying its instructions. Light property guards remain so it
+# cannot simply chase the heaviest molecule in the set.
+POTENCY_LED_PROFILE: list[Objective] = [
+    Objective("potency", "Potency (p-scale)", 8.0, "predicted", "pIC50", "up", 5.0, 9.0),
+    Objective("mw", "MW ≤ 650", 0.5, "descriptor", "mw", "down", 650, 850),
+    Objective("sa", "Synthetic accessibility", 0.5, "descriptor", "sa_score", "down", 5.0, 7.5),
+]
+
+# An antibacterial profile, because the one above is not neutral and we measured it.
+#
+# DEFAULT_PROFILE encodes oral small-molecule drug-likeness. Section 19 of RESULTS.md ran
+# 138 marketed antibacterials and 1,032 marketed drugs of other classes through it: the
+# antibacterials were pushed below the rejection line 19.6 percentage points more often,
+# CI [+10.8, +28.7], on compounds of 600 Da or less where molecular weight cannot be the
+# explanation. Those are drugs that already exist, so that gap is our error, not theirs.
+#
+# The windows below are the marketed class's own 10th-90th percentiles, so they cover the
+# class rather than its middle. An earlier version used the 25th-75th and was wrong: it
+# scored ciprofloxacin 0.836 and pushed 17.4% of marketed antibacterials below 0.5. The
+# window width was chosen on a criterion that measured the wrong quantity -- see section
+# 19's "the sixth verdict-function error".
+#
+# QED is absent on purpose rather than down-weighted. QED is fitted to oral drugs, so
+# scoring a class that is not oral drugs by its resemblance to oral drugs assumes the
+# conclusion. Rotatable bonds is the one term taken from the literature rather than the
+# data: the eNTRy accumulation guideline for Gram-negative entry, which is stricter than
+# the default, not looser.
+#
+# Potency carries the same weight it does elsewhere, and that is load-bearing: these
+# property terms are guards, not rankers. Potency does the ranking. Deleting the potency
+# term would leave a profile that cannot order anything.
+ANTIBACTERIAL_PROFILE: list[Objective] = [
+    Objective("potency", "Potency (p-scale)", 3.0, "predicted", "pIC50", "up", 6.0, 8.0),
+    Objective("mw", "MW ≤ 606 (class p90)", 1.0, "descriptor", "mw", "down", 605.6, 778.4),
+    Objective("clogp", "cLogP −1.2 to 2.3", 1.5, "descriptor", "clogp", "window", -1.21, 2.31, soft=1.76),
+    Objective("tpsa", "TPSA 81–217", 1.0, "descriptor", "tpsa", "window", 81.0, 216.6, soft=67.8),
+    Objective("hbd", "HBD ≤ 6", 0.5, "descriptor", "hbd", "down", 6, 8.5),
+    Objective("rotb", "Rotatable bonds ≤ 5 (eNTRy)", 0.5, "descriptor", "rotb", "down", 5, 10),
+    Objective("sa", "Synthetic accessibility", 0.5, "descriptor", "sa_score", "down", 5.18, 6.69),
+]
+
+
 PROFILES = {
     "oral_lead_opt": DEFAULT_PROFILE,
+    "antibacterial": ANTIBACTERIAL_PROFILE,
+    "potency_led": POTENCY_LED_PROFILE,
     "chembl": CHEMBL_PROFILE,
     "chembl_with_docking": CHEMBL_DOCKING_PROFILE,
 }

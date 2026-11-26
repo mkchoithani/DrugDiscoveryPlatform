@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -331,7 +331,151 @@ def export(name: str):
                              headers={"Content-Disposition": f'attachment; filename="{name}-results.csv"'})
 
 
-# the UI is static files served from the same origin
+
+
+# ------------------------------------------------- customer CSV evaluation
+
+import csv as _csv
+import threading
+import traceback
+import uuid
+from tempfile import NamedTemporaryFile
+
+from fastapi import BackgroundTasks, File, Form, UploadFile
+
+MAX_UPLOAD_BYTES = 32 * 1024 * 1024
+_jobs: dict[str, dict] = {}
+
+
+def _save_upload(upload: UploadFile) -> Path:
+    data = upload.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "file is larger than 32 MB")
+    if not data.strip():
+        raise HTTPException(400, "the file is empty")
+    tmp = NamedTemporaryFile(delete=False, suffix=".csv")
+    tmp.write(data)
+    tmp.close()
+    return Path(tmp.name)
+
+
+@app.post("/api/evaluate/inspect")
+def inspect_csv(file: UploadFile = File(...)):
+    """What is in this file, and which columns would we use? Nothing is run yet."""
+    from .ingest import (DATE_COLUMNS, ID_COLUMNS, SMILES_COLUMNS, VALUE_COLUMNS,
+                         _pick, detect_units)
+    path = _save_upload(file)
+    try:
+        with open(path, newline="", encoding="utf-8-sig") as fh:
+            reader = _csv.DictReader(fh)
+            if not reader.fieldnames:
+                raise HTTPException(400, "no header row found — is this a CSV?")
+            fields = list(reader.fieldnames)
+            sample = [next(reader, None) for _ in range(3)]
+        sample = [r for r in sample if r]
+        detected = {
+            "smiles": _pick(fields, SMILES_COLUMNS),
+            "value": _pick(fields, VALUE_COLUMNS),
+            "id": _pick(fields, ID_COLUMNS),
+            "date": _pick(fields, DATE_COLUMNS),
+        }
+        numbers = []
+        if detected["value"]:
+            for r in sample:
+                try:
+                    numbers.append(float(str(r.get(detected["value"], "")).strip()))
+                except ValueError:
+                    pass
+        return {
+            "upload_id": path.name,
+            "filename": file.filename,
+            "columns": fields,
+            "detected": detected,
+            "units": detect_units(detected["value"], numbers) if detected["value"] else "nM",
+            "sample": sample,
+            "missing": [k for k in ("smiles", "value") if not detected[k]],
+        }
+    except HTTPException:
+        path.unlink(missing_ok=True)
+        raise
+
+
+def _run_evaluation(job_id: str, path: Path, mapping: dict, customer: str | None,
+                    top_n: int, filename: str | None = None) -> None:
+    from .evaluate import evaluate_dataset
+    from .ingest import load_csv
+    from .report import render
+    job = _jobs[job_id]
+    try:
+        job["stage"] = "reading and cleaning the file"
+        compounds, ingest = load_csv(
+            path, smiles_column=mapping.get("smiles"), value_column=mapping.get("value"),
+            id_column=mapping.get("id"), date_column=mapping.get("date"),
+            units=mapping.get("units"))
+        if filename:
+            ingest.source = filename        # the report should name their file, not our temp copy
+        job["ingest"] = ingest.as_dict()
+        job["stage"] = f"training models on {ingest.compounds} compounds"
+        ev = evaluate_dataset(compounds, ingest, top_n=top_n)
+        job["stage"] = "writing the report"
+        job["report_html"] = render(
+            ev, title="Retrospective evaluation", customer=customer,
+            provenance=("Produced by the DMTA platform from an uploaded file. "
+                        "Figures are computed from the uploaded data only."))
+        job["result"] = ev.as_dict()
+        job["stage"] = "done"
+        job["status"] = "done"
+    except Exception as exc:
+        job["status"] = "error"
+        job["stage"] = "failed"
+        job["error"] = str(exc)
+        job["trace"] = traceback.format_exc()[-1500:]
+    finally:
+        path.unlink(missing_ok=True)
+
+
+@app.post("/api/evaluate/run")
+def run_evaluation(upload_id: str = Form(...), smiles: str = Form(...),
+                   value: str = Form(...), id_column: str = Form(""),
+                   date: str = Form(""), units: str = Form("nM"),
+                   customer: str = Form(""), top_n: int = Form(10),
+                   filename: str = Form("")):
+    path = Path(NamedTemporaryFile(delete=False).name).parent / upload_id
+    if not path.exists():
+        raise HTTPException(404, "upload not found — please choose the file again")
+    job_id = uuid.uuid4().hex[:12]
+    _jobs[job_id] = {"status": "running", "stage": "starting", "customer": customer}
+    mapping = {"smiles": smiles, "value": value, "id": id_column or None,
+               "date": date or None, "units": units}
+    threading.Thread(target=_run_evaluation,
+                     args=(job_id, path, mapping, customer or None, top_n,
+                           filename or None),
+                     daemon=True).start()
+    return {"job_id": job_id}
+
+
+@app.get("/api/evaluate/{job_id}/status")
+def evaluation_status(job_id: str):
+    job = _jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, "no such evaluation")
+    return {k: v for k, v in job.items() if k != "report_html"}
+
+
+@app.get("/api/evaluate/{job_id}/report", response_class=HTMLResponse)
+def evaluation_report(job_id: str):
+    job = _jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, "no such evaluation")
+    if job["status"] != "done":
+        raise HTTPException(409, f"not ready: {job['stage']}")
+    return HTMLResponse(job["report_html"])
+
+
+# ---------------------------------------------------------------------- UI
+# Mounted LAST on purpose: a mount at "/" matches before any route declared
+# after it, so an API route added below this line would return 405 instead of
+# running. Keep this at the end of the file.
 UI = ROOT / "ui"
 if UI.exists():
     app.mount("/", StaticFiles(directory=UI, html=True), name="ui")

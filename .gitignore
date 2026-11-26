@@ -1,23 +1,40 @@
-# Derived data — all of it regenerates from the CLI, and keeping it out avoids
-# redistributing ChEMBL and RCSB content under their own licence terms.
-#   python3 -m dmta.cli chembl-fetch --target CHEMBL203
-#   python3 -m dmta.cli structure --pdb 2RGP
-data/
-campaigns.db
-worklist-*.csv
-*-results.csv
-
 # Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
-.ipynb_checkpoints/
-*.egg-info/
 .venv/
 venv/
 
-# Editor / OS
+# Regenerable data. Each of these is rebuilt by a documented command, so none
+# belongs in git. (Comments go on their own line: git treats a trailing "#" as
+# part of the pattern, which silently ignores nothing at all.)
+#   data/*.csv        -> python3 -m dmta.cli chembl-fetch --target <id>
+#   data/structures/  -> python3 -m dmta.cli structure --pdb <id>
+#   data/poses/       -> python3 dock_validate.py <pdb> <n>
+data/*.csv
+data/structures/
+data/poses/
+data/docking_cache.json
+campaigns.db
+*.db
+
+# The COVID Moonshot master file is 87 MB; the trimmed extract is committed instead.
+sample_data/covid_moonshot.csv
+sample_data/osm_compounds.sdf
+
+# Generated reports and worklists
+*-report.html
+worklist-*.csv
+ui/reports/
+
+# macOS
 .DS_Store
-.idea/
-.vscode/
-.claude/
+
+# Downloaded papers (copyright stays with the publishers)
+papers/
+data/rmt_screen_cache/
+data/adme_raw/
+data/jump_cache/
+
+data/f9_cache/
+adme_results.txt

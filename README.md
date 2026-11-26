@@ -11,6 +11,8 @@ browser UI, a CLI, and benchmarks that check the loop actually beats screening.
   that fails and why that matters.
 - [LANDSCAPE.md](LANDSCAPE.md) — how this compares to Proton, Iktos, Schrödinger and the
   open-source stack, and why it is built this way.
+- [COMPETITORS.md](COMPETITORS.md) — the heavily funded 2026 cohort checked one at a time,
+  what actually blocks this from being sold, and where the product should go.
 - [PAPERS.md](PAPERS.md) — PostEra's six published methods against what this actually does.
 - [IMPLEMENTING_PAPERS.md](IMPLEMENTING_PAPERS.md) — what each of those would take to
   build, what it costs, and the known-answer test it has to pass first.

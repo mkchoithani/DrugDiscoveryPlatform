@@ -167,10 +167,19 @@ function render() {
   const plan = state.batch?.plan ?? last?.plan;
   const div = state.batch?.diversity ?? last?.diversity;
   if (plan) {
-    $('mBig').innerHTML = `${plan.shared_steps}<small>reactions for ${plan.shared_steps - plan.groups.length} compounds · ${plan.naive_steps} one-at-a-time (−${plan.steps_saved})</small>`;
+    // The compound count comes from the plan, not from step arithmetic: when the batch
+    // is measured compounds with no enumerated route, every compound keys its own group
+    // and shared_steps - groups.length is exactly zero, which read as "0 compounds".
+    const shared = plan.n_shared_intermediates > 0
+      ? `${plan.naive_steps} one-at-a-time (−${plan.steps_saved})`
+      : 'no intermediate shared by two compounds';
+    $('mBig').innerHTML = `${plan.shared_steps}<small>reactions for ${plan.n_compounds} compound${plan.n_compounds === 1 ? '' : 's'} · ${shared}</small>`;
     $('mBody').innerHTML = kvs([
-      ['Shared intermediates', plan.groups.length],
-      ['Largest parallel set', `${Math.max(...plan.groups.map(g => g.members.length))} analogues`],
+      ['Shared intermediates', plan.n_shared_intermediates],
+      ['Largest parallel set', (() => {
+        const n = Math.max(...plan.groups.map(g => g.members.length));
+        return n > 1 ? `${n} analogues` : 'none — one compound each';
+      })()],
       ['Reagent cost', `$${plan.reagent_cost.toFixed(0)}`],
       ['Longest lead time', `${plan.longest_lead_days} d`],
       ['Mean pairwise similarity', div?.mean_pairwise_tanimoto ?? '—'],
@@ -300,6 +309,16 @@ function compoundTable(rows, tested) {
 function drawRoutes(wrap) {
   const { plan, compounds } = state.batch;
   const byId = Object.fromEntries(compounds.map(c => [c.id, c]));
+  // A batch of measured compounds carries no enumerated route, so there is no step 2
+  // to tabulate. Say that, instead of reading route[1] off an empty array.
+  if (!plan.routed) {
+    wrap.innerHTML = '<p class="muted">These compounds come from measured data rather than '
+      + 'our enumeration, so they carry no synthetic route. A parallel plan appears for '
+      + 'batches drawn from the enumerated library.</p>';
+    $('note').textContent = `${plan.n_compounds} compounds, each made on its own. `
+      + `Reagent spend $${plan.reagent_cost.toFixed(0)}, longest lead ${plan.longest_lead_days} days.`;
+    return;
+  }
   wrap.innerHTML = plan.groups.map(g => `
     <div class="group">
       <h4>${g.step1} with ${g.reagent}<span class="pill">${g.members.length} analogue${g.members.length > 1 ? 's' : ''} from one intermediate</span></h4>

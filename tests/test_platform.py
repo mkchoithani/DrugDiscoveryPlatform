@@ -141,6 +141,32 @@ def test_shared_intermediates_save_steps():
     plan = group_by_intermediate(batch)
     assert plan["shared_steps"] < plan["naive_steps"]
     assert plan["steps_saved"] == plan["naive_steps"] - plan["shared_steps"]
+    assert plan["n_compounds"] == len(batch)
+    assert plan["routed"] is True
+    assert plan["n_shared_intermediates"] == 1          # all six share one
+
+
+def test_the_plan_reports_the_compound_count_itself():
+    """The UI used to infer it as shared_steps - len(groups).
+
+    For a batch of measured compounds that is exactly zero -- each one keys its own
+    group, so the two counts are equal -- and the panel read "reactions for 0
+    compounds". The count has to come from the batch, and the plan has to say when
+    nothing is shared, so a display cannot dress fifteen separate syntheses up as a
+    parallel plan that saved nothing.
+    """
+    lib = fresh_library()
+    batch = lib[:15]
+    for c in batch:                  # as ChEMBL and CSV ingest build them
+        c.route = []
+        c.intermediate_key = c.id
+    plan = group_by_intermediate(batch)
+    assert plan["n_compounds"] == 15
+    assert plan["routed"] is False
+    assert plan["n_shared_intermediates"] == 0
+    assert len(plan["groups"]) == 15
+    assert plan["shared_steps"] - len(plan["groups"]) == 0   # the old expression
+    assert plan["steps_saved"] == 0
 
 
 # ------------------------------------------------------------------ campaign

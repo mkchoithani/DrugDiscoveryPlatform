@@ -1873,7 +1873,15 @@ carried a degenerate floor. That is an argument for always carrying one.
 ## Where this test is weak, stated plainly
 
 - **No time split, on either set.** The column that broke potency prediction is untested
-  here, and there is no reason to expect ADME to be kinder.
+  here, and there is no reason to expect ADME to be kinder. **I tried to recover the dates
+  and it does not work:** the Lipophilicity rows carry ChEMBL compound ids, and ChEMBL
+  dates its documents, but the logD *values* are not stored as dated activities — 1 of 6
+  sampled compounds has a retrievable `LogD` activity at all. A time split built on the
+  ~17% that survive would be a split on whichever compounds happen to be twice-published,
+  which is worse than admitting there is no time split. Closing this column needs a dated
+  ADME source, which in practice means a real one. The same hole appears in §21 for the
+  same reason: JUMP carries no dates either. **Two consecutive capability evaluations have
+  now been unable to test the one regime this platform is known to fail in.**
 - **Two endpoints, both public, both on MoleculeNet.** No clearance, no permeability, no
   hERG, no plasma protein binding. logD and solubility are the two most physics-like ADME
   endpoints and plausibly the two most favourable.

@@ -52,7 +52,7 @@ from sklearn.linear_model import RidgeCV
 
 from dmta.chem import descriptors, feature_vector
 from dmta.ingest import load_csv
-from dmta.models import PropertyModel, regression_metrics
+from dmta.models import DescriptorRidge, PropertyModel, choose_model, regression_metrics
 from dmta.validate import random_split, scaffold_split
 
 RAW = Path("data/adme_raw")
@@ -125,6 +125,13 @@ def predict_arms(train, test, Xtr, Xte, fp_tr, fp_te, ytr, sign) -> dict:
     mu, sigma = model.predict(test)
     out["forest"] = mu
 
+    # The model actually shipped for this endpoint, not a bare RidgeCV: it carries
+    # the bootstrap sigma the acquisition functions need, and sigma is the half of
+    # it that the rho and MAE tables below cannot see.
+    shipped = DescriptorRidge(seed=0).fit(train, target="measured")
+    mu_r, sigma_r = shipped.predict(test)
+    out["platform_ridge"] = mu_r
+
     fp = RandomForestRegressor(n_estimators=300, max_features="sqrt", n_jobs=-1,
                                random_state=0).fit(fp_tr, ytr)
     out["forest_fp_only"] = fp.predict(fp_te)
@@ -144,7 +151,7 @@ def predict_arms(train, test, Xtr, Xte, fp_tr, fp_te, ytr, sign) -> dict:
         out[name] = a * raw_te + b
 
     out["mean"] = np.full(len(test), float(ytr.mean()))
-    return out, sigma, model
+    return out, sigma, sigma_r, model, shipped
 
 
 # ------------------------------------------------------------------- statistics
@@ -234,11 +241,14 @@ def run(key: str) -> None:
     print(f"  featurised in {time.time() - t0:.0f}s, p = {X_all.shape[1]}")
     index = {id(c): i for i, c in enumerate(compounds)}
 
-    arms = ["forest", "forest_fp_only", "descriptor_ridge", "clogp", "heavy_atoms", "mean"]
+    arms = ["forest", "platform_ridge", "forest_fp_only", "descriptor_ridge",
+            "clogp", "heavy_atoms", "mean"]
     results: dict[str, dict[str, list[float]]] = {
         split: {a: [] for a in arms} for split in ("random", "scaffold")
     }
     sigma_rank: dict[str, list[float]] = {"random": [], "scaffold": []}
+    sigma_rank_ridge: dict[str, list[float]] = {"random": [], "scaffold": []}
+    chosen: dict[str, list[str]] = {"random": [], "scaffold": []}
     keep: dict[str, dict] = {}
 
     for split_name, splitter in (("random", random_split), ("scaffold", scaffold_split)):
@@ -252,10 +262,13 @@ def run(key: str) -> None:
             ytr = np.array([c.measured for c in train])
             yte = np.array([c.measured for c in test])
 
-            preds, sigma, model = predict_arms(
+            preds, sigma, sigma_r, model, shipped = predict_arms(
                 train, test, X_all[tr_i], X_all[te_i], fp_all[tr_i], fp_all[te_i],
                 ytr, cfg["clogp_sign"],
             )
+            # what the selector would pick, seeing only the training split
+            _, pick = choose_model(train, target="measured", seed=0)
+            chosen[split_name].append(pick["chosen"])
             for a in arms:
                 results[split_name][a].append(spearman(preds[a], yte))
 
@@ -264,6 +277,10 @@ def run(key: str) -> None:
             sr = spearman(sigma, err)
             if sr is not None:
                 sigma_rank[split_name].append(sr)
+            err_r = np.abs(preds["platform_ridge"] - yte)
+            sr_r = spearman(sigma_r, err_r)
+            if sr_r is not None:
+                sigma_rank_ridge[split_name].append(sr_r)
 
             if seed == SEEDS[0]:
                 keep[split_name] = {
@@ -285,9 +302,15 @@ def run(key: str) -> None:
                 continue
             v = np.array(v)
             print(f"  {a:<18}{v.mean():>8.3f}{v.min():>8.3f}{v.max():>8.3f}")
-        s = np.array(sigma_rank[split_name])
-        print(f"  sigma ranks error: {s.mean():+.3f} mean over seeds "
-              f"({'usable' if s.mean() > 0.2 else 'weak or uninformative'})")
+        for label, store in (("forest", sigma_rank), ("ridge ", sigma_rank_ridge)):
+            v = np.array(store[split_name])
+            if not len(v):
+                continue
+            print(f"  sigma ranks error, {label}: {v.mean():+.3f} mean over seeds "
+                  f"({'usable' if v.mean() > 0.2 else 'weak or uninformative'})")
+        picks = chosen[split_name]
+        print(f"  choose_model picked: "
+              f"{', '.join(f'{p} x{picks.count(p)}' for p in sorted(set(picks)))}")
 
     # -------------------------------------------------------------- the verdicts
     for split_name in ("random", "scaffold"):
@@ -302,7 +325,7 @@ def run(key: str) -> None:
         # "mean" is absent here on purpose: a constant predictor has no ranking,
         # so a rho comparison against it is not defined. It appears in the MAE
         # table below, which is where a constant floor actually means something.
-        for rival in ("clogp", "descriptor_ridge", "heavy_atoms"):
+        for rival in ("platform_ridge", "clogp", "descriptor_ridge", "heavy_atoms"):
             p, lo, hi = paired_ci(preds["forest"], preds[rival], obs)
             print(f"\n  forest vs {rival}")
             print(f"    d-rho {p:+.3f}, 95% CI [{lo:+.3f}, {hi:+.3f}]")

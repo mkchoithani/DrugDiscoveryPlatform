@@ -1731,3 +1731,65 @@ def test_the_selector_says_so_rather_than_guessing_when_scaffolds_collapse():
     _, pick = choose_model(lib)
     assert pick["chosen"] == "forest"
     assert "too few scaffolds" in pick["reason"]
+
+
+# --------------------------------------- the scaffold key, one layer under the split
+
+def test_murcko_returns_known_answers():
+    """Pins the workaround itself, not the thing that uses it.
+
+    dmta.chembl.murcko exists because rdkit.Chem.Scaffolds.MurckoScaffold raises
+    "bad any cast" on every input in RDKit 2026.09.2 -- not on awkward molecules,
+    on all of them. If the rdMolHash path it replaced that with ever breaks the
+    same way, these three answers change and this test says so.
+    """
+    from dmta.chembl import murcko
+
+    assert murcko("CC(=O)Oc1ccccc1C(=O)O") == "c1ccccc1"       # aspirin
+    assert murcko("c1ccc2ccccc2c1") == "c1ccc2ccccc2c1"        # naphthalene
+    assert murcko("CCN(CC)CC") == "acyclic"                    # no ring system
+    assert murcko("not a molecule") == "unknown"               # unparseable, by design
+
+
+def test_the_scaffold_count_does_not_collapse_on_real_data():
+    """The assertion that would have caught the Cell Painting bug.
+
+    murcko() ends in `except Exception: return "unknown"`. That is the right
+    behaviour for one bad SMILES and the wrong behaviour for a broken library: if
+    rdMolHash fails the way MurckoScaffold already does, every compound returns
+    "unknown", every compound lands in one scaffold group, and every scaffold
+    split silently becomes a split on row order -- which is exactly the failure
+    section 21 hit one layer up, where scaffold_key swallowed the same exception
+    and returned "".
+
+    Checking known answers per molecule cannot catch that, because each
+    individual call still returns a plausible string. Only the distribution over
+    a real file can: a working scaffold key produces many groups, a broken one
+    produces a single value repeated.
+    """
+    import collections, csv, pathlib
+
+    from dmta.chembl import murcko
+
+    path = pathlib.Path("data/CHEMBL203-IC50.csv")
+    if not path.exists():
+        pytest.skip("run `python3 -m dmta.cli chembl-fetch --target CHEMBL203` first")
+
+    rows = list(csv.DictReader(path.open()))[:2000]
+    column = next(c for c in rows[0] if "smiles" in c.lower())
+    counts = collections.Counter(murcko(r[column]) for r in rows)
+
+    degenerate = counts["unknown"] + counts["acyclic"]
+    assert degenerate < 0.05 * len(rows), (
+        f"{degenerate} of {len(rows)} compounds have no usable scaffold "
+        f"({counts['unknown']} unknown, {counts['acyclic']} acyclic). The scaffold "
+        f"key has probably stopped working, and every scaffold split in sections 1, "
+        f"18 and 21 is a split on row order until it is fixed."
+    )
+    assert len(counts) > len(rows) / 10, (
+        f"only {len(counts)} distinct scaffolds over {len(rows)} compounds — too few "
+        f"to split on. A single repeated value is what a swallowed exception looks like."
+    )
+    assert counts.most_common(1)[0][1] < 0.5 * len(rows), (
+        "one scaffold covers more than half the file, which no real series does"
+    )

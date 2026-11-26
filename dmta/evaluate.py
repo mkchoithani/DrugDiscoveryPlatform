@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .campaign import Campaign, CycleSettings
+from .cost import Ledger
 from .ingest import IngestReport
 from .library import Compound
 from .scoring import CHEMBL_PROFILE, POTENCY_LED_PROFILE
@@ -31,10 +32,17 @@ class Evaluation:
     loop: dict = field(default_factory=dict)
     verdict: dict = field(default_factory=dict)
     settings: dict = field(default_factory=dict)
+    # What the evaluation cost to produce. Default "local", so the headline figure is the
+    # marginal cash cost on hardware already owned -- which is the honest number for a run
+    # on your own machine, and is zero. Pass a rented rate to see what it would cost on
+    # someone else's. See dmta/cost.py.
+    cost: Ledger = field(default_factory=Ledger)
+    cost_rate: str = "local"
 
     def as_dict(self) -> dict:
         return {"ingest": self.ingest.as_dict(), "splits": self.splits,
-                "loop": self.loop, "verdict": self.verdict, "settings": self.settings}
+                "loop": self.loop, "verdict": self.verdict, "settings": self.settings,
+                "cost": self.cost.as_dict(self.cost_rate)}
 
 
 def run_splits(compounds: list[Compound], n_estimators: int = 300, verbose: bool = False) -> dict:
@@ -227,16 +235,27 @@ def verdict(splits: dict, loop: dict) -> dict:
 def evaluate_dataset(compounds: list[Compound], ingest: IngestReport,
                      batch_size: int | None = None, cycles: int | None = None,
                      top_n: int = 10, n_estimators: int = 300,
-                     objective: str = "potency", verbose: bool = False) -> Evaluation:
+                     objective: str = "potency", verbose: bool = False,
+                     cost_rate: str = "local") -> Evaluation:
+    led = Ledger()
     if verbose:
         print(f"  modelling {len(compounds)} compounds…", flush=True)
-    splits = run_splits(compounds, n_estimators=n_estimators)
+    with led.step("three splits, model fitted and scored on each"):
+        splits = run_splits(compounds, n_estimators=n_estimators)
     if verbose:
         print("  replaying the programme…", flush=True)
-    loop = run_loop(compounds, batch_size=batch_size, cycles=cycles, top_n=top_n,
-                    objective=objective, verbose=verbose)
+    with led.step("retrospective loop replay"):
+        loop = run_loop(compounds, batch_size=batch_size, cycles=cycles, top_n=top_n,
+                        objective=objective, verbose=verbose)
+    # The denominators. "verdicts" is 1 on purpose: one run answers one question, and
+    # that is the number a buyer is actually paying for. compounds_scored is reported
+    # beside it because it is the figure that flatters, and hiding it would be its own
+    # kind of dishonesty -- it is simply not the headline.
+    led.count(verdicts=1, compounds_scored=len(compounds),
+              models_fitted=3 + loop.get("cycles", 0))
     return Evaluation(
         ingest=ingest, splits=splits, loop=loop, verdict=verdict(splits, loop),
         settings={"n_estimators": n_estimators, "top_n": top_n,
                   "batch_size": loop["batch_size"], "cycles": loop["cycles"]},
+        cost=led, cost_rate=cost_rate,
     )

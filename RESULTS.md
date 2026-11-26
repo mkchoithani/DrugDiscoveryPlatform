@@ -2160,3 +2160,108 @@ tested a process. **100 tests pass.**
 This cost an afternoon, needed no new science, and is the only item on the feature list
 in [FEATURES.md](FEATURES.md) that was already true before it was built — which is also
 the reason it had never been claimed. It is worth asking what else is in that category.
+
+---
+
+# 22. What an answer cost, reported next to the answer
+
+*Section 21 is reserved for the Cell Painting work running in a sibling session.*
+
+Every number in this file has a price, and until now that price appeared only in prose:
+"a few hours of CPU", "96× less compute to fit", "two ChEMBL queries and a few minutes".
+Those are the strongest claims this project has for a customer who cannot afford a physics
+stack — and they were footnotes, written by hand, and never checked.
+
+[COMPETITORS.md](COMPETITORS.md) made the case that in the market we can actually reach,
+cost per outcome is the differentiator being funded rather than an apology for a simple
+model. This section makes it a measured, reported number.
+
+```bash
+python3 -m dmta.cli evaluate --csv data/CHEMBL203-IC50.csv --cost-rate a100_80
+```
+
+## The result, on the real EGFR dataset
+
+| step | wall seconds | CPU seconds |
+|---|---|---|
+| three splits, model fitted and scored on each | 22.4 | 65.3 |
+| retrospective loop replay | 33.4 | 121.7 |
+| **total** | **55.8** | **187.0** |
+
+One verdict on 8,978 real compounds — three splits, a calibration check and an
+eleven-cycle loop replay — for **$0.01–0.02** of rented machine, or **nothing** on a
+laptop that was already bought.
+
+Against the published cost of making and testing a single compound, **$565–$1,000**, the
+entire analysis costs **under one thousandth of one compound**. That is the sentence worth
+carrying into a conversation, and it is now generated rather than asserted.
+
+## Four ways a cost number lies, and what stops each one here
+
+This was a short build. Almost all of it is the guards, because a cost figure is trivial
+to produce and trivial to make dishonest, and every failure below still renders a
+plausible-looking page.
+
+### 1. Time is measured. Money is assumed. They must not look alike.
+
+A wall-clock second is a fact: a clock was read twice. A dollar is that fact multiplied by
+a rental rate this process never observed. So `measured` always carries seconds; `assumed`
+carries the rate **and its source**; `estimate` exists only when a rate was supplied. The
+HTML prints the rate and its provenance inline — *"assuming $1.19/hour (A100 80GB PCIe);
+that rate is an assumption, not a measurement: Runpod catalogue read, ROADMAP.md,
+2026-11-24"* — so the page cannot be read as having observed a price.
+
+### 2. No rate must mean no money, never a silent zero
+
+**A zero that means "unknown" is the most expensive wrong number available**, because it
+reads as *free* and gets repeated by whoever saw it. With no rate configured the report
+says so in words and prints no figure at all.
+
+The `local` rate is a genuine zero and a different thing: hardware already owned has a
+marginal cash cost of nil. Its label says exactly that, so the two zeroes cannot be
+confused.
+
+### 3. The flattering denominator must not become the headline
+
+Cost per compound scored is a fraction of a cent, always, for any platform, because
+scoring is vectorised and libraries are large. It is true and it decides nothing.
+
+**The headline denominator is the verdict: one run answers one question, and that is what
+is being bought.** Per-compound is still printed — hiding it would be its own dishonesty —
+with a line saying why it is not the number that matters. A test asserts the per-compound
+figure is the cheaper of the two, so it cannot quietly be promoted.
+
+### 4. A GPU rate on a run that never used a GPU
+
+The platform's own finding is that a CPU random forest ties Chemprop at a fraction of the
+compute. Pricing that run at an A100 rate overstates the bill — **in the direction that
+makes our own cost argument look worse**, which is the safe direction, but a reader should
+not have to work it out. The report now says so where it happens.
+
+Cost is charged on **wall-clock**, not CPU seconds, because a rented machine bills by the
+clock whether every core is busy or not. CPU time is reported beside it so a parallel run
+is visible as parallel: above, 187 CPU seconds inside 56 wall seconds.
+
+## The anchor is a range, and stays a range
+
+| source | per compound |
+|---|---|
+| ChemRxiv 2025-01, AI-driven DMTA system — synthesis plus assay, one project | **€565** |
+| arXiv 2026, D2ML direct-to-biology — custom synthesis | **~$1,000** |
+
+Both are **single-project self-reports, not industry benchmarks**, and the report says so
+under the figure. Collapsing them into one number would manufacture a precision the
+literature does not have — and that invented number would then be quoted back at us. A
+test asserts the constant stays a pair with two sources, and that the equivalence in
+compounds reports the modest end first.
+
+## What this does not do
+
+It prices **compute**, which is the cheap half. It does not price the chemist reading the
+batch, the assay, or the twelve months of calendar time a real programme spends. A
+platform that costs two cents to run and proposes a compound nobody makes has cost the
+programme a cycle, and no ledger here will show that.
+
+So this is an honest number about the thing it measures, and the thing it measures is not
+the whole cost of a decision. The loop still has no prospective result, and compute was
+never what was blocking that.

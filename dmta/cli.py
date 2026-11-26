@@ -17,6 +17,7 @@ from .assay import CsvAssay, SimulatedAssay, write_batch_csv
 from .campaign import Campaign, CycleSettings
 from .scoring import CHEMBL_PROFILE
 from .select import ACQUISITIONS
+from .cost import RATES as COST_RATES
 from .store import Store
 
 DB = Path(__file__).resolve().parent.parent / "campaigns.db"
@@ -158,12 +159,14 @@ def cmd_evaluate(args, store):
         print(f"  ! {w}")
 
     ev = evaluate_dataset(compounds, ingest, batch_size=args.batch,
-                          cycles=args.cycles, top_n=args.top, verbose=True)
+                          cycles=args.cycles, top_n=args.top, verbose=True,
+                          cost_rate=args.cost_rate)
 
     print(f"\nVERDICT: {ev.verdict['headline']}")
     print(f"  {ev.verdict['detail']}")
     if ev.verdict.get("caveat"):
         print(f"  caveat: {ev.verdict['caveat']}")
+    print(f"\nCOST: {ev.cost.summary(ev.cost_rate)}")
 
     out = write_report(ev, args.out or "evaluation-report.html",
                        title=args.title, customer=args.customer,
@@ -257,6 +260,9 @@ def main(argv=None):
     q.add_argument("--batch", type=int, help="compounds per cycle (default ~4% of the set)")
     q.add_argument("--cycles", type=int)
     q.add_argument("--top", type=int, default=10, help="size of the 'best compounds' target set")
+    q.add_argument("--cost-rate", default="local", choices=sorted(COST_RATES),
+                   help="hourly rate to price this run at; 'local' means hardware you "
+                        "already own, whose marginal cash cost is zero")
     q.set_defaults(fn=cmd_evaluate)
 
     q = sub.add_parser("structure", help="prepare a PDB entry for docking")

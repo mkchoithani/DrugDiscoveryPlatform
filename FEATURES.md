@@ -213,7 +213,7 @@ team has to wrap, and that wrapping is Zifo's business model. **Recommendation: 
 build this; treat it as the partnership surface.** An examiner is a natural product for a
 validation-and-governance firm to resell, and they have the distribution we never will.
 
-### F12. Cost per answer, reported as a first-class number
+### F12. Cost per answer, reported as a first-class number — **BUILT 2026-11-26**
 
 **Who made it a strategy:** Immuneel and Cellogen, whose pitch is a CAR-T course at
 $60–70k against a global $500–700k. In this market the funded differentiator is cost per
@@ -226,9 +226,18 @@ of CPU.
 **What to add:** compute cost, wall-clock and cost-per-compound-scored on every evaluation
 report, next to the accuracy numbers. `report.py` already renders the artefact.
 
-**Known-answer test:** none needed — it is measurement and reporting, not a claim.
+**Known-answer test:** none needed — it is measurement and reporting, not a claim. The
+tests pin the *honesty constraints* instead, which is where a cost number actually fails.
 
-**Cost:** days.
+**Outcome ([RESULTS.md](RESULTS.md) §22):** `dmta/cost.py`, wired into `evaluate_dataset`,
+the HTML report and the CLI (`--cost-rate`). One verdict on 8,978 EGFR compounds costs
+**$0.01–0.02** rented, nothing on owned hardware — **under one thousandth of a single
+compound** at the published $565–$1,000. Four failure modes are guarded and tested: no
+rate means no money rather than a silent zero, every rate carries its source, the
+flattering per-compound denominator cannot become the headline, and a GPU rate on a
+CPU-only run says so.
+
+**Cost:** hours.
 
 ---
 

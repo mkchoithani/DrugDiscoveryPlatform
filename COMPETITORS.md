@@ -301,6 +301,45 @@ as a footnote about compute.
 **Sensa Core** is IVD diagnostics hardware. Nothing to compare; I could not verify the
 company at all.
 
+## A third group, at a different layer: Benchling, Latch Bio, Applied Compute
+
+Added 2026-11-26. These are not on either funding list and are not drug companies. They
+matter because they are the first organisations in this document that **our product would
+sit on top of rather than compete with**.
+
+- **Benchling** — the system of record for R&D across a reported 1,300+ biotechs (Merck,
+  Moderna, Sanofi). Its 2026 direction is agents grounded in the customer's own data, with
+  MCP connectors, and *Science Foundries*, which lets agents order their own experiments
+  by API.
+- **Latch Bio** — no-code cloud bioinformatics, positioning as the agent for biology data
+  analysis, and publishing benchmark work of its own.
+- **Applied Compute** — post-training of open-weight models on a customer's proprietary
+  data in their own or a sovereign environment. **Acquired by Palo Alto Networks for $4.5B
+  in stock on 18 Nov 2026.**
+
+**None of them chooses a molecule.** They automate the work around the decision. That makes
+Benchling the most concrete distribution surface anything in this document has produced —
+more concrete than Zifo, because the API already exists.
+
+Two things follow for us.
+
+**One: the reported result there is measured the way we exist to object to.** A custom
+model is reported as beating frontier models by over 11 percentage points on *Benchling's*
+protocol benchmarks — the benchmark owned by one partner, the model by the other, the
+number published on the vendor's own feed, with no stated split, no interval and no
+description of what a tie would have looked like. The *reasoning* behind it is ours
+exactly: find a task whose answer is known internally and absent publicly. The
+*measurement discipline* is not. A $4.5B acquisition has just created a category of
+agent-performance claims in biotech with no independent referee in it.
+
+**Two: we have a sovereignty story we have never told.** Palo Alto paid that price largely
+for the ability to keep proprietary data out of public model providers. Our loop is a CPU
+forest over a local SQLite store; only two modules in the codebase open a network
+connection at all, and both are explicit opt-in fetch steps. For a customer whose compound
+structures are the asset, molecules never leaving the machine is a property we already
+have and have never claimed. [FEATURES.md](FEATURES.md) F13 makes it a test rather than a
+sentence.
+
 ## What this cohort changes
 
 1. **We have a named customer profile.** Small-molecule discovery organisations in the

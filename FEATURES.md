@@ -6,7 +6,9 @@ Written 2026-11-26.
 
 The second cohort is the one that matters commercially: it contains a customer we can
 name and a gatekeeper we cannot route around. Its items are **F9–F12**, and two of them
-outrank most of what the US list produced.
+outrank most of what the US list produced. A third group — Benchling, Latch Bio and
+Applied Compute — sits at the *agent* layer rather than the molecule layer; its items are
+**F13–F15**, and F13 is the cheapest thing on this page.
 
 **The rule this document obeys:** nothing on this list ships because a funded company has
 it. Each item carries the known-answer test it must pass first, and the condition under
@@ -185,6 +187,112 @@ report, next to the accuracy numbers. `report.py` already renders the artefact.
 
 ---
 
+## Tier 1c — the agent layer: Applied Compute, Benchling, Latch
+
+Added 2026-11-26. **This is a different layer from everything above, and it is the first
+group that is neither competitor nor customer but a *platform we would sit on top of*.**
+
+### What is actually being done there
+
+| | what it is | layer |
+|---|---|---|
+| **Benchling** | Cloud R&D platform — ELN, LIMS, registry — across a reported 1,300+ biotechs including Merck, Moderna and Sanofi. Benchling AI adds agents grounded in the customer's own structured R&D data, with MCP-based connectors. **Science Foundries** (Oct 2026) lets agents submit designs and order their own experiments by web or API. | the system of record |
+| **Latch Bio** | No-code cloud bioinformatics: versioned containerised pipelines, RNA-seq, CRISPR, structure prediction. Positions as "the AI agent for biology data analysis", and publishes benchmark work across antibodies, single-cell, spatial and biosecurity. | the analysis layer |
+| **Applied Compute** | Post-training and inference of **open-weight** models on a customer's proprietary data, in the customer's own or a sovereign environment. Acquired by Palo Alto Networks on 18 Nov 2026 for **$4.5B in stock**, closing FY3Q 2027. | the model layer |
+
+None of the three decides which molecule to make. **They automate the work around the
+decision; we make the decision.** So this is not a competitive threat — it is the first
+credible distribution surface either cohort has produced.
+
+### The claim in the source, and what is wrong with how it was measured
+
+The pasted note reports that Applied Compute's custom model beat frontier models by
+**over 11 percentage points on Benchling's protocol benchmarks**, on the reasoning that
+scientists rarely publish how they troubleshoot failed protocols, so public models have
+never seen the data.
+
+**The reasoning is exactly ours.** It is the known-answer argument moved one layer up: find
+a task where the answer is known internally and absent publicly, and measure against it.
+We should take it seriously for that reason.
+
+**But look at who owns what.** The benchmark belongs to Benchling. The model belongs to
+Applied Compute. The partnership belongs to both. The number was published on the
+vendor's own feed, and one search did not surface it anywhere independent. There is no
+split discipline stated, no confidence interval, no baseline description, and no account
+of what a tie would have looked like.
+
+That is not an accusation of dishonesty — it is the ordinary structure of a vendor
+benchmark, and we have published our own version of the same mistake five times and
+corrected it each time ([RESULTS.md](RESULTS.md) §16, §17). **It is also, precisely, the
+market we said we were in.** A $4.5B acquisition has just made agent-performance claims in
+biotech a category with real money behind it and no independent referee.
+
+### F13. Sovereignty as a measured property, not a marketing line
+
+**Who made it valuable:** Palo Alto paid $4.5B substantially for the ability to train and
+serve models in a customer's own environment. The pasted note names the reason: molecular
+data, IP and patient records cannot go to a public model provider.
+
+**What we already have, by accident:** a random forest on CPU, a local SQLite store, and a
+loop that calls nothing. I checked — **only two modules in the codebase open a network
+connection at all** (`chembl.py` fetching activity data, `structure.py` fetching a PDB),
+and both are explicit, separate fetch steps. The Design–Make–Test cycle itself does not
+touch the network.
+
+**For a customer whose compound structures *are* the asset, that is a feature we have never
+once claimed.**
+
+**Known-answer test — and this one can be genuinely proven rather than asserted:** run a
+full campaign cycle with the socket layer blocked, and assert it completes. A test that
+fails the moment any module tries to open a connection turns "your molecules never leave
+your machine" from a promise into something with a test name attached to it.
+
+**Pass condition:** a complete cycle — enumerate, score, select, plan, ingest results,
+retrain — with sockets disabled, and the ChEMBL and PDB fetchers clearly marked as the
+only opt-in network steps.
+
+**Cost:** days. **This is the single cheapest credibility gain on any of these lists**, and
+unlike every other item here it needs no new science — only a test and a sentence we are
+already entitled to write.
+
+### F14. Point the examiner at agent claims
+
+**The observation:** our verdict machinery is not molecule-specific. The paired bootstrap,
+the three-valued verdict, the scaffold/time split discipline, the pre-specification
+reported *alongside* the result — none of it knows what is being compared. We built it to
+examine property models; §16 and §17 show it examining our own reasoning.
+
+An "11 points better on our own benchmark" claim is the same shape as "cleaning beats no
+cleaning" and would go through the same machine: what is the control, what is the split,
+what is the interval, and what would a tie have looked like?
+
+**Honest limits.** Agent benchmarks are not AUC over compounds. Pass rates on protocol
+tasks are the natural unit; our bootstrap resamples compounds, so the resampling unit
+would have to change. That is real work, not a rename. And we have no agent benchmark of
+our own and no access to Benchling's.
+
+**Recommendation: do not build this yet — write it down as the direction.** It is the
+clearest commercial expression of the thing [COMPETITORS.md](COMPETITORS.md) concluded we
+should sell, and it now has a $4.5B category forming around it. But it is a product bet,
+and Phase 0 outranks it.
+
+### F15. The Benchling surface, which changes F11's answer
+
+F11 said instrument and ELN integration was a partnership surface and not a build, with
+Zifo as the example. Benchling sharpens that: **a specific platform, 1,300+ organisations,
+MCP connectors, and agents that can already order experiments through an API.**
+
+"The lab is a CSV" was the right first contract and should stay. But the API we said we
+would not build now exists on someone else's side of the line, and our worklist-out /
+results-in loop is the exact shape it accepts.
+
+**Recommendation: still do not build it speculatively** — build it when a customer on
+Benchling asks. The change is that we now know what to build *against*, which we did not
+before.
+
+
+---
+
 ## Revised order
 
 F9 and F12 move ahead of most of Tier 2, because both are days of work and both change what
@@ -192,10 +300,10 @@ we can say to a customer we can actually name.
 
 | | item | why it moved |
 |---|---|---|
-| **Phase 1** | F1 ADME · **F9 non-oral profiles** · F3 trade-off view · **F12 cost reporting** · F10 audit trail | F9 is a demonstrable defect; F12 is a strategy this market already rewards |
+| **Phase 1** | F1 ADME · **F9 non-oral profiles** · **F13 sovereignty, proven by test** · F3 trade-off view · **F12 cost reporting** · F10 audit trail | F9 is a demonstrable defect; F13 is days of work for a property we already have and never claimed; F12 is a strategy this market already rewards |
 | **Phase 2** | F4 Cell Painting · F2 manufacturability | unchanged — F4 remains the highest-value experiment |
 | **Phase 3** | F5 natural-product domain | unchanged |
-| **Not scheduled** | F6–F8 modalities · **F11 integrations** | F11 joins them: a partnership surface, not a build |
+| **Not scheduled** | F6–F8 modalities · **F11 / F15 integrations** · **F14 examiner for agents** | F11 and F15 are a partnership surface, not a build; F14 is the product bet, written down rather than started |
 
 The Phase 0 caveat is unchanged and now has more force, not less. A discovery organisation
 with $43M has fewer compounds to waste than Lilly does, so **"what has this loop
@@ -322,17 +430,18 @@ either way.
 
 ## What this list is worth, stated plainly
 
-Four of these twelve items are strong: **F9** because it is a defect we can demonstrate
-against public data in days; **F1** because programmes die on ADME and we do not model it;
-**F4** because it is the only untried fix for our central measured weakness; and **F3**
-because it is cheap and chemists ask for it immediately. **F12** is nearly free and worth
-doing beside them.
+Five of these fifteen items are strong: **F13** because the property is already true of
+the codebase and needs only a test to become a claim; **F9** because it is a defect we can
+demonstrate against public data in days; **F1** because programmes die on ADME and we do
+not model it; **F4** because it is the only untried fix for our central measured weakness;
+and **F3** because it is cheap and chemists ask for it immediately. **F12** is nearly free
+and worth doing beside them.
 
 **F5** is mostly a disclosure. **F10** is compliance, not science, and non-negotiable.
 **F2** may well be beaten by counting steps, and we should expect that. **F6–F8** should
 not be built, and **F11** is a partnership surface rather than a build.
 
-And none of the twelve changes the fact that no compound this loop selected has ever been
+And none of the fifteen changes the fact that no compound this loop selected has ever been
 made. A longer feature list is the most comfortable way to avoid that sentence, which is
 the main reason this document leads with it.
 
@@ -341,5 +450,7 @@ the main reason this document leads with it.
 - [TDC ADMET Benchmark Group](https://tdcommons.ai/benchmark/admet_group/overview/) · [TDC paper, NeurIPS 2021](https://zitniklab.hms.harvard.edu/publications/papers/TDC-neurips21-main.pdf) · [Beyond Scaffold Splits (2026)](https://arxiv.org/pdf/2607.10729)
 - [JUMP Cell Painting dataset](https://www.biorxiv.org/content/10.1101/2023.03.23.534023.full.pdf) · [consortium GitHub](https://github.com/jump-cellpainting) · [batch-correction work](https://arxiv.org/pdf/2601.22331)
 - [SKEMPI 2.0](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6361233/)
+- Agent layer, for F13–F15: [Palo Alto / Applied Compute, $4.5B](https://www.constellationr.com/insights/news/palo-alto-networks-acquires-applied-compute-45-billion) · [8-K press release](https://www.sec.gov/Archives/edgar/data/0001327567/000132756726000030/ex992pressrelease_november.htm) · [Benchling AI](https://www.benchling.com/ai) · [Benchling AI connectors](https://www.benchling.com/news/benchling-launches-ai-connectors-to-power-data-ecosystem) · [LatchBio](https://www.verdict.co.uk/latchbio-unveils-cloud-bioinformatics-platform/) · [Latch on verifiable environments](https://ai.engineer/orgs/latchbio)
+  *The 11-percentage-point figure is from the vendor's own feed and did not surface independently in one search.*
 - eNTRy rules, for F9: [converting Gram-positive-only compounds](https://pubmed.ncbi.nlm.nih.gov/29446459/) · [eNTRyway and the three criteria](https://pmc.ncbi.nlm.nih.gov/articles/PMC8715754) · [worked examples](https://pmc.ncbi.nlm.nih.gov/articles/PMC8612397) · [exceptions are common](https://revive.gardp.org/?p=14643)
 - Company capabilities as cited in [COMPETITORS.md](COMPETITORS.md)

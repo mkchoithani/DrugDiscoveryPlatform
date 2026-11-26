@@ -37,6 +37,7 @@
        color:#7d8894; font-weight:700; padding:0 4mm 2mm 0; border-bottom:1.5px solid #d4dae1; }
   td { padding:2.6mm 4mm 2.6mm 0; border-bottom:1px solid #edf0f3; vertical-align:top; }
   td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; padding-right:6mm; }
+  table.dense td { padding-top:1.6mm; padding-bottom:1.6mm; }
   tr.hero td { font-weight:700; color:#0b5d3b; }
   tr.dead td { color:#9aa4b0; }
   .tag { display:inline-block; font-size:8pt; font-weight:700; padding:.8mm 2.2mm;
@@ -81,7 +82,7 @@
   <div class="rule"></div>
   <p class="sub">A closed-loop platform that tells a chemist which molecules to make next —
   and refuses to ship any capability that has not beaten a test whose answer we already knew.</p>
-  <div class="foot"><span>25 November 2026</span><span>Status: 2 kept · 3 rejected · 1 tie · 1 parked</span></div>
+  <div class="foot"><span>25 November 2026</span><span>Status: 2 kept · 3 rejected · 2 ties · 1 parked</span></div>
 </section>
 
 <!-- 2 PROBLEM -->
@@ -140,13 +141,15 @@
       <div><div class="n">7</div><div class="l">capabilities put through the examination</div></div>
       <div><div class="n">2</div><div class="l">passed and kept</div></div>
       <div class="grey"><div class="n">3</div><div class="l">failed and were deleted</div></div>
-      <div class="grey"><div class="n">4</div><div class="l">of our own published claims corrected</div></div>
+      <div class="grey"><div class="n">5</div><div class="l">of our own published claims corrected</div></div>
     </div>
     <div class="note">Three rejections is the product working &mdash; each one a feature a
     competitor could have shipped on a plausible-looking number. The two that passed are the
-    loop itself and the handling of compounds too weak to measure. A fourth came out a
-    <em>tie</em>, and the fourth corrected claim is ours: we had been calling that tie a
-    rejection. One more is parked unfinished rather than counted as either.</div>
+    loop itself and the handling of compounds too weak to measure. Two came out <em>ties</em>,
+    and both are corrections to us: one we had been calling a rejection, one we had never
+    tested on the task its authors validated. Seven capabilities, eight claims &mdash; two of
+    them turned out to be two claims wearing one verdict. One more is parked unfinished
+    rather than counted as either.</div>
   </div>
   <div class="foot"><span>Hara Vara</span><span>4</span></div>
 </section>
@@ -209,28 +212,33 @@
 <!-- 7 REJECTED -->
 <section class="slide">
   <p class="kicker">What we deleted, and what only tied</p>
-  <h2>Three capabilities failed the examination <span class="q">— and a fourth only tied</span></h2>
+  <h2>Three capabilities failed the examination <span class="q">— and two only tied</span></h2>
   <div class="body">
-    <table>
+    <table class="dense">
       <tr><th>Capability</th><th>Published promise</th><th>What we measured</th><th>Outcome</th></tr>
       <tr><td><strong>Docking</strong> (3D pose scoring)</td><td>Physics ranks unseen chemotypes</td>
           <td>No signal on potency (3 structures + ensemble) or on hit finding</td><td><span class="tag fail">rejected ×4</span></td></tr>
       <tr><td><strong>Chemprop</strong> (graph neural net)</td><td>Field-standard strong baseline</td>
-          <td>24 programmes: paired CI [−0.097, +0.024] <em>contains zero</em>. Gap plateaus at
-          −0.034 from n≈2,000 up</td><td><span class="tag tie">tie — forest kept on cost</span></td></tr>
-      <tr><td><strong>RMT</strong> correlation cleaning</td><td>PNAS 2019 — denoise the covariance</td>
-          <td>ρ 0.389 against the forest's 0.562</td><td><span class="tag fail">rejected</span></td></tr>
+          <td>24 programmes: paired CI [−0.097, +0.024] <em>contains zero</em>; gap plateaus
+          at −0.034 from n≈2,000</td><td><span class="tag tie">tie — forest kept on cost</span></td></tr>
+      <tr><td><strong>RMT</strong> as our potency model</td><td>PNAS 2019 — denoise the covariance</td>
+          <td>ρ 0.389 against the forest's 0.562; re-run as the screen its authors validated,
+          −0.036 AUC, CI [−0.053, −0.014]</td><td><span class="tag fail">rejected</span></td></tr>
+      <tr><td><strong>RMT</strong> cleaning, the paper's own claim</td><td>Cleaning beats no cleaning</td>
+          <td>9 LIT-PCBA screens, cleaned against the identical uncleaned path: paired CI
+          [−0.028, +0.006] <em>contains zero</em></td><td><span class="tag tie">tie — untested until now</span></td></tr>
       <tr><td><strong>Pharmacophore maps</strong></td><td>Cheaper and less biased than docking</td>
           <td>1.24× enrichment — beaten by <em>counting heavy atoms</em> (1.37×)</td>
           <td><span class="tag fail">rejected ×3</span></td></tr>
       <tr><td><strong>De novo generation</strong></td><td>Design molecules from fragments</td>
           <td>46 molecules in 210 s, none lead-like</td><td><span class="tag fail">parked</span></td></tr>
     </table>
-    <div class="note" style="margin-top:6mm">Total cost of finding this out: a few hours of CPU
-    and no lab money. The alternative was building a pipeline around each one and discovering
-    it after a programme had committed. <strong>Chemprop is the honest case:</strong> we had
-    called it rejected, re-tested it with a paired interval, and found a tie. The forest stays
-    because it costs 96× less to fit, not because it won.</div>
+    <div class="note" style="margin-top:3mm">Total cost: a few hours of CPU, no lab money.
+    <strong>Both ties are corrections to us.</strong> Chemprop we had called rejected; a paired
+    interval made it a tie, and the forest stays on cost, not a win. RMT we had rejected on
+    potency prediction, a task its authors never offered it for; re-run as the screen they did
+    validate, the model still loses, but the cleaning ties &mdash; one word covering two
+    claims.</div>
   </div>
   <div class="foot"><span>Hara Vara</span><span>7</span></div>
 </section>
@@ -337,7 +345,7 @@
         and the p-value shown. This is slower. It is the whole product.</p></div>
     </div>
     <p class="quote" style="margin-top:12mm">We have deleted three of our own features,
-    demoted a fourth from "rejected" to a tie, and corrected four of our own claims.
+    demoted two from "rejected" to a tie, and corrected five of our own claims.
     <strong>That is the evidence that the numbers we do report mean something.</strong></p>
   </div>
   <div class="foot"><span>Hara Vara</span><span>11</span></div>

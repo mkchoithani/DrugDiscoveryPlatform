@@ -142,7 +142,7 @@ inventing a benchmark to look rigorous.
 Added 2026-11-26, from the second cohort in [COMPETITORS.md](COMPETITORS.md). They sit in
 Tier 1 because two of them are cheap, and one of them is a defect rather than a feature.
 
-### F9. Property profiles that are not oral-drug profiles — **a bug, not a gap**
+### F9. Property profiles that are not oral-drug profiles — **BUILT 2026-11-26, defect confirmed**
 
 **Who exposed it:** Bugworks, developing Gram-negative antibacterials.
 
@@ -173,7 +173,17 @@ RDKit; the ionizable-nitrogen test is a SMARTS match.
 
 **Why this is first:** it is the only item on either list that is a **defect we can
 demonstrate against public data today**, it costs days, and it converts a prospect's first
-objection into our own published finding. It also fits our standard exactly — the
+objection into our own published finding.
+
+**Outcome ([RESULTS.md](RESULTS.md) §19):** confirmed. The shipped profile rejects
+marketed antibacterials **+19.6%** more often than other marketed drugs, CI
+[+10.8%, +28.7%], at ≤600 Da where weight is not the explanation. Daptomycin scores
+exactly zero; vancomycin, amikacin and streptomycin are all marked down. A repaired
+profile ships as `PROFILES["antibacterial"]` and takes held-out rejection from 39.3% to
+4.9%. Two failed repair attempts are recorded, and the second produced the project's
+**sixth verdict-function error** — a saturation check measured on the property terms
+alone, when potency is what ranks, which would have shipped a profile that marks down
+ciprofloxacin. It also fits our standard exactly — the
 pharmacophore work died because counting heavy atoms beat it, and this is the same kind of
 test pointed at ourselves.
 

@@ -1883,3 +1883,169 @@ carried a degenerate floor. That is an argument for always carrying one.
   says nothing about the next one. The 5-seed spread is reported alongside for that reason.
 - **The solubility test set is 177 compounds.** The ±0.033 tie interval is as tight as that
   allows, and a real effect of 0.03 ρ would not have been detected.
+
+---
+
+# 19. The property profile rejects drugs that already exist
+
+Everything before this section judged a compound's properties with one profile,
+`DEFAULT_PROFILE`, and presented it as *the* property profile. It is not neutral. It
+encodes **oral small-molecule** drug-likeness, and it was applied to every campaign
+without anyone — me included — asking what happens when the programme is not an oral
+small-molecule programme.
+
+[COMPETITORS.md](COMPETITORS.md) turned up a company for which that is not hypothetical:
+Bugworks, developing a broad-spectrum antibacterial now in Phase 1. Gram-negative
+antibacterials are famously not drug-like by the oral criteria.
+
+```bash
+python3 f9_profile_test.py
+```
+
+## The test: marketed drugs are a known answer
+
+A drug that is approved and sold is, by definition, good enough. If our profile marks
+down drugs that already exist, the profile is wrong and **the number of them is the size
+of the error**.
+
+| arm | what it is | n |
+|---|---|---|
+| antibacterial | ATC **J01**, approved, small molecules | 138 |
+| control | ATC **A, C, L, N**, approved, not also J01 | 1,032 |
+
+Both arms are marketed drugs. Neither is a set of failures. A profile that genuinely
+measures "drug-likeness" should not separate them.
+
+Only the **descriptor** objectives are scored. Potency, route confidence, cost and lead
+time are unknown for a marketed drug, and `Objective.value` returns 0.5 for a missing
+value — including them would add the same constant to both arms and halve every
+difference for no reason. The rejection line is pre-specified as the control arm's 25th
+percentile.
+
+## Result: the profile we ship marks down real antibiotics
+
+| | antibacterials | control | difference in rejection rate |
+|---|---|---|---|
+| whole class | 47.1% rejected, median 0.708 | 25.0%, median 0.855 | **+22.1%**, CI [+13.3%, +30.9%] |
+| **≤600 Da only** | **40.7%** rejected, median 0.770 | 21.0%, median 0.865 | **+19.6%**, CI [+10.8%, +28.7%] |
+
+The second row is the one that matters. Antibacterials include glycopeptides of 1,400+ Da,
+and a small-molecule profile marking *those* down is arithmetic, not a finding. Below
+600 Da, where molecular weight cannot be the explanation, the bias is almost unchanged.
+
+The worst-scoring marketed antibacterials under our own profile:
+
+| score | drug | MW | cLogP | TPSA | QED |
+|---|---|---|---|---|---|
+| **0.000** | daptomycin | 1620.7 | −5.62 | 702.0 | 0.01 |
+| 0.051 | plazomicin | 592.7 | −5.36 | 269.3 | 0.09 |
+| 0.105 | amikacin | 585.6 | −8.42 | 331.9 | 0.11 |
+| 0.113 | streptomycin | 581.6 | −8.16 | 336.4 | 0.07 |
+| 0.153 | vancomycin | 1449.3 | 0.11 | 530.5 | 0.07 |
+| 0.166 | cefiderocol | 752.2 | −0.18 | 256.9 | 0.05 |
+
+Daptomycin scores **exactly zero**. Three of these are on the WHO Essential Medicines
+list. A loop running this profile would never propose anything resembling them.
+
+## The repair, and the two ways I got it wrong first
+
+### Attempt 1: widen the windows by hand — caught by a pre-written check
+
+I widened cLogP, widened TPSA, raised the HBD ceiling and dropped QED. It "worked": the
+gap inverted to −13.4%. It also lifted the **control** arm's median from 0.855 to 0.906
+and scored the median antibacterial exactly **1.000**.
+
+That is not a class-specific profile. It is a lower bar wearing one. The degenerate-fix
+check existed in the script before the first run precisely because this is the obvious
+way to fake the result, and it caught it.
+
+### Attempt 2: fit the windows to the class — and pick the width on the wrong measurement
+
+Fitting the windows to the class's own percentile spread is defensible, but circular: a
+profile fitted to a set will score that set well. So the fit uses **half** the marketed
+antibacterials and every number is reported on the **held-out half**.
+
+The width then had to be chosen. I swept it and required three things: don't over-reject
+the class, don't lift the control arm, and **don't saturate** — a profile that gives a
+whole class full marks cannot order it, and ordering is the only thing a profile does.
+
+| window | rejected, abx | rejected, control | difference | below 0.5 | control median |
+|---|---|---|---|---|---|
+| **10–90** | 10.1% | 25.0% | −14.9% | **7.2%** | 0.805 |
+| 20–80 | 15.9% | 25.0% | −9.1% | 13.0% | 0.660 |
+| 25–75 | 18.8% | 21.2% | −2.4% | 18.8% | 0.600 |
+| 30–70 | 26.1% | 21.5% | +4.6% | 26.1% | 0.540 |
+| 35–65 | 30.4% | 25.0% | +5.4% | 31.9% | 0.500 |
+
+I first chose **25–75**, because at 10–90 my saturation column read 68.8% and failed.
+
+Then a test I had written failed on **ciprofloxacin** — one of the most-prescribed
+antibacterials in the world — which scored 0.836 under that window, because its TPSA of
+74.6 sits below the fitted lower edge. Fitting to the middle 50% of a class excludes the
+edges of that same class.
+
+## The sixth verdict-function error, and this one had a victim
+
+**I measured saturation on the property terms alone.** But the property terms are not
+what ranks compounds — **potency is**, at weight 3.0 against the guards' 5.0. With the
+potency term restored and a realistic spread of activity, the identical profile at 10–90
+saturates at **7.2%**, not 68.8%.
+
+The number was not wrong. It was a measurement of the wrong quantity, and it pointed the
+decision in a specific direction: toward a narrower profile that rejects **18.8%** of
+marketed antibacterials instead of 7.2%, ciprofloxacin among them.
+
+This is the sixth time in this project that my own checking logic, rather than a model,
+produced the error — and the first time the mistake would have shipped as a *product
+default* rather than as a sentence in a document. The pattern across all six is the same:
+**the check measured something adjacent to the thing it claimed to measure.** The property
+score is adjacent to the full score. A tie is adjacent to a rejection. A plateau is
+adjacent to a trend.
+
+What saved it was a unit test written from a real drug rather than from the fitted
+distribution. The distribution cannot tell you that ciprofloxacin matters; only chemistry
+can.
+
+## What ships
+
+`PROFILES["antibacterial"]`, fitted at the 10th–90th percentile of the marketed class,
+with:
+
+- **QED dropped, not down-weighted.** QED is fitted to oral drugs. Scoring a class that is
+  deliberately not oral-drug-like by how much it resembles oral drugs assumes the
+  conclusion.
+- **Rotatable bonds tightened to ≤5**, the eNTRy accumulation guideline for entry into
+  Gram-negative cells — the one term taken from the literature rather than the data, and
+  the only place this profile is *stricter* than the default.
+- Held-out antibacterials ≤600 Da: rejected **39.3% → 4.9%**.
+
+### What this profile is not
+
+It over-corrects. On the held-out half it now rejects antibacterials **14.9% less** often
+than control drugs, CI [−21.8%, −6.6%], and that interval excludes zero. Parity would be
+zero. **This is a profile for antibacterial programmes, not a better universal profile** —
+which is the honest conclusion, and the one the architecture already supported: LANDSCAPE.md
+records "the profile is data" as a design decision, and this is the first time that
+decision has been load-bearing rather than decorative.
+
+### The eNTRy criteria, as context rather than verdict
+
+| arm | primary amine | ionizable N | rotB ≤ 5 | median spherocity |
+|---|---|---|---|---|
+| antibacterial (≤600 Da) | 17.1% | 43.1% | 66.7% | 0.204 |
+| control (≤600 Da) | 6.0% | 29.5% | 65.5% | 0.218 |
+
+The nitrogen criteria separate the arms; rotatable bonds do not. Globularity is the
+published third criterion and RDKit does not ship the authors' definition — spherocity is
+reported as the nearest available measure, and **their 0.25 threshold is deliberately not
+applied to it**, because a cut-off defined on one measure does not transfer to another.
+
+## What this cost and what it bought
+
+Two ChEMBL queries, a few minutes of CPU, no GPU. It found a defect that had been shipping
+in every campaign since the profile was written, and it is the first finding in this
+project that came from a named prospective customer rather than from a paper.
+
+**It does not make the loop work prospectively.** That remains unaddressed, and a
+discovery organisation of Bugworks' size will ask about it sooner than a large pharma
+would, because it has fewer compounds to waste.

@@ -432,6 +432,15 @@ tie (−0.002, CI [−0.012, +0.008]). **F4 is not closed.** JUMP carries no dat
 time split F4 was actually about could not be run, and the σ collapse remains
 unaddressed — the cheap hypotheses for it are now exhausted rather than resolved.
 
+**This is a well-powered negative, not an underpowered one**, which is the difference
+between "it does not help" and "we could not tell". The tie interval is ±0.012, against
+§17's ±0.028 — the tightest in the file. Mean AUC over the 38 proteins: fingerprint
+0.671, profile alone 0.609, fused 0.669.
+
+**Two caveats travel with it and should not be dropped when it is quoted.** It is a
+scaffold split, not the time split F4 existed to test. And JUMP's labels count "never
+tested" as inactive, which makes the benchmark easier than a real screen.
+
 ### F5. Natural-product chemistry support — the library, not the model
 
 **Who has it:** Enveda (PRISM, MS2Mol), LifeMine.

@@ -2216,9 +2216,11 @@ python3 jump_annotated_test.py
 
 ## Provenance, because this section nearly carried the wrong numbers
 
-The experiment was run in a sibling session, which then failed before writing it up. A
-cached set of per-protein differences was sitting in `data/jump_cache`, and reconstructing
-the verdict from it gave a clean, publishable story.
+The experiment was run in one session and written up in another. Six sessions share a
+forked transcript here and git records a single author for all of them, so **who did
+which part is not reliably recoverable and this section does not guess.** A cached set of
+per-protein differences was sitting in `data/jump_cache`, and reconstructing the verdict
+from it gave a clean, publishable story.
 
 It was the wrong run. The cache was written at 08:28:47 and the script was edited at
 08:29:03 — sixteen seconds later — and the commit that landed the scripts said the run
@@ -2234,6 +2236,11 @@ the two caches settles it:
 Every conclusion below survives the correction. **Every magnitude moved**, one of them by
 a third. A reader who had quoted the 08:28 numbers would not have been wrong about the
 direction of anything and would have been wrong about the size of everything.
+
+Those three discarded figures are not taken on trust: they are reproduced in
+`discarded_run_summary.txt`, the stdout of the run itself, kept precisely because the
+cache that held them has been deleted under the guard described below. A provenance table
+whose own evidence was destroyed to make a point about provenance would be its own joke.
 
 **The tree these numbers were computed at: `a0ce85e`.** Six sessions were writing to this
 branch while the run was scoring, so the tree moved underneath it.

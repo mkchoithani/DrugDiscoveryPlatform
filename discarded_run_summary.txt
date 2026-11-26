@@ -1,0 +1,37 @@
+The DISCARDED run of jump_annotated_test.py -- kept as evidence, not as a result.
+
+These numbers are WRONG and are published nowhere. They come from the run whose
+"scaffold split" was a split on row order, because scaffold_key wrapped an RDKit
+call that raises on every molecule in `except Exception: return ""`. Section 21's
+provenance table quotes three of them (-0.048, +0.173, -0.006) to show how far a
+plausible-looking reconstruction can drift, and this file is where those three can
+be checked. The .npz cache that held them was deleted under the provenance guard.
+
+The correct figures are in section 21 of RESULTS.md, computed at a0ce85e.
+
+--- stdout of the discarded run follows ---
+
+ACROSS 38 PROTEINS -- paired over proteins, the structure section 17 used
+
+  PRE-SPECIFIED PRIMARY (concatenated, against fingerprint)
+    mean -0.048  95% CI [-0.062, -0.034]  wins 7/38
+    -> both LOSES. The interval excludes zero in the other direction.
+
+  THE CONTROL: real profile against the same columns scrambled
+    mean +0.053  95% CI [+0.037, +0.069]  wins 34/38
+    -> both WINS. The interval excludes zero.
+
+  DILUTION-IMMUNE: rank-fused, against fingerprint
+    mean -0.006  95% CI [-0.016, +0.003]  wins 16/38
+    -> A TIE, NOT A REJECTION. The interval contains zero, so this test did not separate them.
+     An effect up to 0.016 of AUC, either way, is still inside it: a statement about what this could resolve, not a measurement of no effect.
+
+  IS THE PROFILE ABOVE CHANCE AT ALL
+    mean +0.132  95% CI [+0.095, +0.171]  wins 34/38
+    -> profile WINS. The interval excludes zero.
+
+  profile alone, against heavy-atom count
+    mean +0.173  95% CI [+0.119, +0.231]  wins 31/38
+    -> profile WINS. The interval excludes zero.
+
+per-protein differences cached to data/jump_cache/annotated_scores.npz

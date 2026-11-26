@@ -29,7 +29,7 @@ For comparison work. Plain-language version; the detail for each is further down
 
 | # | In plain words | Who has it | We have | Effort | Status |
 |---|---|---|---|---|---|
-| **F1** | Predict ADME — will the drug dissolve, survive the liver — not just potency | Every clinical company | partly | days | **DONE, split verdict.** logD passes (ρ 0.757 vs cLogP 0.219). Solubility fails — ship a ridge instead |
+| **F1** | Predict ADME — will the drug dissolve, survive the liver — not just potency | Every clinical company | partly | days | **DONE, split verdict.** logD passes (ρ 0.757 vs cLogP 0.219). Solubility fails twice over — it ties a ridge on rank and its σ is 1.53× over-confident; ship the ridge |
 | **F2** | Check a route survives real manufacturing scale, not just that it exists | Resilience, WuXi | no | days | planned; expect it to lose to counting steps |
 | **F3** | Show *what was sacrificed* in a compound, not one blended score | all | no | days | planned |
 | **F4** | Judge a molecule by what it does to a cell, not by what it looks like | Eikon, Altos, NewLimit | no | ~4 wks | **planned — highest upside.** Only untried fix for our σ collapse |
@@ -98,7 +98,19 @@ held-out scaffolds against cLogP's 0.219, and the forest still beats cLogP by +0
 CI [+0.407, +0.549], with every descriptor stripped out. Solubility does **not**: it ties
 a twelve-descriptor ridge (Δρ −0.001, CI [−0.033, +0.032]) and loses on error, MAE 1.053
 against 0.731. We ship the ridge for that endpoint. Neither public set carries dates, so
-there is no time split — the column that matters most is still untested here. Note the 2026 critique that scaffold splits hide ADMET failures
+there is no time split — the column that matters most is still untested here.
+
+**A second, independent reason, added 2026-11-26 (RESULTS.md §18).** The forest on
+solubility is also **1.53× over-confident**: its σ is calibrated on random out-of-fold
+residuals and then used on held-out scaffolds, where it needs to be half as large again.
+The ridge on the same endpoint is honest at 0.99×. The mechanism is the one that lost the
+endpoint in the first place — a forest cannot predict past its training leaves, so on a
+twelve-log-unit range the held-out tails squash toward the mean, error grows and σ does
+not, because the trees agree with each other while being collectively wrong. Random folds
+hold out no tails, so they cannot surface it. The rule is **not** that random-fold
+calibration costs a few percent; it is that random-fold calibration is adequate when a
+model fails *randomly* and misleading when it fails *structurally*, and a model that
+cannot extrapolate fails structurally by construction. Note the 2026 critique that scaffold splits hide ADMET failures
 ([arXiv 2607.10729](https://arxiv.org/pdf/2607.10729)); we should run our time split too,
 which the leaderboard does not.
 
@@ -382,7 +394,7 @@ prospectively found?" arrives sooner from this customer, not later.**
 
 ## Tier 2 — build next. Needs new data plumbing; public data exists.
 
-### F4. A phenotypic readout — the one with real upside
+### F4. A phenotypic readout — **RUN 2026-11-26: a tie, and F4's real question is still open**
 
 **Who has it:** Eikon, whose whole discovery engine is live-cell microscopy. Altos,
 NewLimit and Retro all read cell state rather than binding.
@@ -411,6 +423,14 @@ the data plumbing.
 **Honest risk:** we would be joining compound structure to a phenotype measured on *other*
 compounds, in a different assay, in one cell line. That is a weaker link than it sounds,
 and the test above is designed to expose it rather than hide it.
+
+**Outcome ([RESULTS.md](RESULTS.md) §21):** run on 38 proteins from JUMP's own
+annotations. The morphology is real — it beats chance by +0.112 AUC and heavy-atom count
+by +0.113 — and it **adds nothing to a fingerprint model**: concatenation loses
+(−0.032, CI [−0.047, −0.017]) through dilution, and the dilution-immune rank fusion is a
+tie (−0.002, CI [−0.012, +0.008]). **F4 is not closed.** JUMP carries no dates, so the
+time split F4 was actually about could not be run, and the σ collapse remains
+unaddressed — the cheap hypotheses for it are now exhausted rather than resolved.
 
 ### F5. Natural-product chemistry support — the library, not the model
 
@@ -486,6 +506,10 @@ and that negative is itself publishable under our own standard.
 to us, because a win would fix the finding that currently limits the whole platform, and a
 loss closes the last cheap hypothesis for it — which is worth knowing and worth publishing
 either way.
+
+**Status:** run on a *scaffold* split, because JUMP has no dates (§21). The result is a
+tie, so the gate is neither passed nor failed — settling it needs a dated phenotypic
+dataset, and we do not have one.
 
 ### Phase 3 — scope honesty, ~1 week
 - **F5** natural-product applicability domain, reported as a limit.

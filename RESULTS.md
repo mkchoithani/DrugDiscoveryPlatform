@@ -2369,3 +2369,42 @@ compounds give 3,294 distinct scaffolds with **zero** `"unknown"` and a largest 
 third pins the safe failure — if scaffolds ever do collapse to one group, `choose_model`
 reports that it could not compare instead of silently returning whichever model it fitted
 last.
+
+### The calibration is fitted in the wrong regime, and it matters unevenly
+
+Both models fit `sigma_calibration` from **random** out-of-fold residuals, then apply it in
+the scaffold and time regimes. Another session raised this as a consequence of the selector
+lesson above and measured it on EGFR potency at about 7% — intervals 1.07× too narrow.
+
+That number does not generalise. Measured here as the ratio of the calibration a held-out
+scaffold split actually needs to the one we ship, over 5 seeds:
+
+| endpoint | model | intervals too narrow by | range |
+|---|---|---|---|
+| **solubility** | **forest** | **1.53×** | 1.49–1.57 |
+| solubility | ridge | 0.99× | 0.98–1.00 |
+| logD | forest | 0.97× | 0.96–0.99 |
+| logD | ridge | 1.08× | 1.07–1.10 |
+
+Three of the four pairs are within 10%. The fourth is 53% too confident, and it is exactly
+the pair we stopped shipping.
+
+The mechanism is the same one that lost the endpoint. A forest cannot predict outside its
+training leaves, so on solubility's twelve-log-unit range the held-out tails get squashed
+toward the mean: the error grows, but σ does not, because the trees **agree with each other
+while being collectively wrong**. Random folds never show this, because random folds have
+no tails to hold out. So random-fold calibration is adequate when a model fails randomly
+and misleading when it fails structurally — and a model that cannot extrapolate fails
+structurally by construction.
+
+This strengthens the case for the ridge rather than qualifying it: the model we replaced
+was not merely less accurate on this endpoint, it was overconfident about being wrong. The
+ridge's σ ranks error poorly (−0.026) but its **magnitude is honest** (0.99×); the forest's
+σ ranks better (+0.157) and is 1.5× too tight. Those are different defects and only the
+first is visible in a Spearman correlation.
+
+Two things this is not. It is **not** an explanation of §1's σ-ranking collapse — a
+constant rescaling cannot change a rank correlation, so the 0.44 → 0.36 → 0.12 decay is a
+separate problem and remains unsolved. And there is **no time-split version of this table**,
+because neither public set carries dates; on the evidence above the time regime would be
+worse, but that is an expectation, not a measurement.

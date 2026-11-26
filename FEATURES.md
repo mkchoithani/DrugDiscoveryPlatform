@@ -23,6 +23,34 @@ anything on this page.
 
 ---
 
+## The whole list on one page
+
+For comparison work. Plain-language version; the detail for each is further down.
+
+| # | In plain words | Who has it | We have | Effort | Status |
+|---|---|---|---|---|---|
+| **F1** | Predict ADME — will the drug dissolve, survive the liver — not just potency | Every clinical company | partly | days | **DONE, split verdict.** logD passes (ρ 0.757 vs cLogP 0.219). Solubility fails — ship a ridge instead |
+| **F2** | Check a route survives real manufacturing scale, not just that it exists | Resilience, WuXi | no | days | planned; expect it to lose to counting steps |
+| **F3** | Show *what was sacrificed* in a compound, not one blended score | all | no | days | planned |
+| **F4** | Judge a molecule by what it does to a cell, not by what it looks like | Eikon, Altos, NewLimit | no | ~4 wks | **planned — highest upside.** Only untried fix for our σ collapse |
+| **F5** | Say out loud where our model stops working (natural-product chemistry) | Enveda, LifeMine | no | days | planned as a disclosure |
+| **F6–F8** | Peptides, antibodies, conjugates | Chai, Earendil, Isomorphic, Parabilis | no | months | **recommend against.** A second platform, not a feature |
+| **F9** | Stop assuming every drug is an oral pill — antibiotics break our scoring | exposed by Bugworks | **defect** | days | in progress; a bug, not a gap |
+| **F10** | A tamper-proof record of who changed what, that an auditor accepts | Zifo | no | weeks | required before any pilot |
+| **F11** | Plug into the customer's lab software | Zifo | no | — | **don't build.** Partnership surface |
+| **F12** | Put the cost of each answer on the report, next to the accuracy | Immuneel, Cellogen (as strategy) | **true, unstated** | days | planned |
+| **F13** | Prove the molecules never leave the customer's machine | Applied Compute / Palo Alto | **true, unstated** | days | **cheapest item here** |
+| **F14** | Use our examiner to grade *other people's AI claims* | nobody | machinery exists | months | written down, not started |
+| **F15** | The Benchling connector specifically | Benchling (1,300+ labs) | no | — | build when a customer asks |
+
+**Three of these we already have and have never said:** F12 (our forest matches Chemprop
+at 96× less compute), F13 (the loop makes no network calls), and the examiner itself.
+**One is a defect:** F9. **One is nearly free and nobody else claims it:** F13.
+
+And the thing no feature fixes: no compound this loop selected has ever been made.
+
+---
+
 ## First, the honest cut: what cannot be copied
 
 Four of the twelve have capabilities that are not features and cannot be built by us at
@@ -63,7 +91,14 @@ already does for potency. If σ on an ADME endpoint is as uninformative as it is
 time split, the endpoint is reported and *not* given to an acquisition function.
 
 **Cost:** CPU, hours. **Verdict risk:** low — this is the best-characterised task in the
-field. Note the 2026 critique that scaffold splits hide ADMET failures
+field.
+
+**Result, 2026-11-26 (RESULTS.md §18): a split verdict.** logD passes — ρ 0.757 on
+held-out scaffolds against cLogP's 0.219, and the forest still beats cLogP by +0.478,
+CI [+0.407, +0.549], with every descriptor stripped out. Solubility does **not**: it ties
+a twelve-descriptor ridge (Δρ −0.001, CI [−0.033, +0.032]) and loses on error, MAE 1.053
+against 0.731. We ship the ridge for that endpoint. Neither public set carries dates, so
+there is no time split — the column that matters most is still untested here. Note the 2026 critique that scaffold splits hide ADMET failures
 ([arXiv 2607.10729](https://arxiv.org/pdf/2607.10729)); we should run our time split too,
 which the leaderboard does not.
 

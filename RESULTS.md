@@ -2404,12 +2404,27 @@ existed only to be beaten:
 | §21 | every `scaffold_key` call returned a plausible value | any scaffold |
 | §21 | `1 passed, 96 deselected`, read as a pass | four of the five tests, deleted from the tree |
 
-The last row is this section's own near-miss, and it is the cleanest of the four. A
-sibling session restoring these tests after an accidental staging printed
-`restored their block: 1 tests` and read it as success. The count was *correct* — one test
-really was restored — and it was still wrong, because the question was never "how many"
-but **how many of how many**. A number with no denominator is not a check. The cheap guard
-is `git diff HEAD <file> | grep "^+def test"`, which names every added test instead of
+The last row is this section's own near-miss, and it is the cleanest of the four. It
+happened at **`f4fc402`**, and the session responsible identified it from its own trail
+and asked to be named here rather than left as "a sibling session" — the distinction
+being that this is recoverable where the authorship of this section is not. Having found
+four of these tests accidentally staged, it rebuilt the file as HEAD plus its own block
+and then restored the rest by appending everything that followed its final test. That
+recovered the one test appended after that point and silently dropped the four that sat
+before it. The restore printed `restored their block: 1 tests` and the count was read as
+success.
+
+The count was *correct*. One test really was restored. It was still wrong, because the
+question was never "how many" but **how many of how many**. A number with no denominator
+is not a check.
+
+**And the loss is not visible in `f4fc402`'s diff.** That commit adds five tests, 90 to
+95, and deletes a single line; git cannot show four tests disappearing because they had
+never been committed. The clean story the repository tells is complete and omits the
+whole event. This is the strongest argument in this document for landing a test as soon
+as it passes: an uncommitted test is not a test, and in a tree six sessions are writing
+to, it is not even a record. The cheap guard before any commit is
+`git diff HEAD <file> | grep "^+def test"`, which names every added test instead of
 counting them.
 
 ---

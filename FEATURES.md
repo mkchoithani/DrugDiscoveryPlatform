@@ -29,7 +29,7 @@ For comparison work. Plain-language version; the detail for each is further down
 
 | # | In plain words | Who has it | We have | Effort | Status |
 |---|---|---|---|---|---|
-| **F1** | Predict ADME — will the drug dissolve, survive the liver — not just potency | Every clinical company | partly | days | **DONE, split verdict.** logD passes (ρ 0.757 vs cLogP 0.219). Solubility fails twice over — it ties a ridge on rank and its σ is 1.53× over-confident; ship the ridge |
+| **F1** | Predict ADME — will the drug dissolve, survive the liver — not just potency | Every clinical company | partly | days | **DONE, split verdict.** logD passes (ρ 0.757 vs cLogP 0.219). On solubility the **forest** fails twice over — it ties a ridge on rank and its σ is 1.53× over-confident — so the **ridge ships** there, honest at 0.99× |
 | **F2** | Check a route survives real manufacturing scale, not just that it exists | Resilience, WuXi | no | days | planned; expect it to lose to counting steps |
 | **F3** | Show *what was sacrificed* in a compound, not one blended score | all | no | days | planned |
 | **F4** | Judge a molecule by what it does to a cell, not by what it looks like | Eikon, Altos, NewLimit | no | ~4 wks | **planned — highest upside.** Only untried fix for our σ collapse |

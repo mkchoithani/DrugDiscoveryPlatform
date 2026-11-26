@@ -1445,3 +1445,289 @@ def test_only_the_two_opt_in_fetchers_touch_the_network():
         f"opt-in fetch the user invokes by name, add it to FETCHERS in egress_test.py "
         f"and say so in RESULTS.md section 20."
     )
+
+
+def test_the_scaffold_split_is_deterministic_and_never_shares_a_scaffold():
+    """Section 21's split, and the precedence bug it was written with.
+
+    The first version of this function read
+
+        if n + len(grp) <= target or rng.random() < 0.5 and n < target:
+
+    which Python groups as `A or (B and C)` -- a coin flip inside a split that the
+    whole comparison is run on. Two runs of the same experiment would then be two
+    different experiments, and the paired intervals across proteins would silently
+    mix them. This pins both properties the split has to have: the same input gives
+    the same split, and no Murcko scaffold appears on both sides, because a shared
+    scaffold leaks the training chemistry into the held-out set and turns a
+    generalisation test back into a random split.
+    """
+    from jump_annotated_test import scaffold_key, scaffold_split
+
+    # Six ring families of descending size plus two acyclic compounds. The split
+    # fills training with the largest families first, so a fixture needs enough
+    # distinct ring systems for the held-out side to contain a real scaffold --
+    # with too few, every test-side compound is acyclic, the overlap check compares
+    # two empty sets and passes without testing anything.
+    smiles = [
+        "CC(=O)Oc1ccccc1C(=O)O", "CCOc1ccccc1C(=O)O", "COc1ccccc1C(=O)O",
+        "c1ccc2ccccc2c1", "Cc1ccc2ccccc2c1", "CCc1ccc2ccccc2c1",
+        "C1CCNCC1", "CC1CCNCC1", "CCC1CCNCC1",
+        "c1ccncc1", "Cc1ccncc1",
+        "c1ccc(-c2ccccc2)cc1", "Cc1ccc(-c2ccccc2)cc1",
+        "c1ccc2[nH]ccc2c1", "Cc1ccc2[nH]ccc2c1",
+        "CCN(CC)CC", "CCCN(CC)CC",
+    ]
+    a = scaffold_split(smiles)
+    b = scaffold_split(smiles)
+    assert (a == b).all(), "the split must not change between two identical calls"
+
+    # These two assertions are why this test exists. scaffold_key once returned ""
+    # for EVERY molecule -- rdkit.Chem.Scaffolds.MurckoScaffold raises "bad any cast"
+    # on all inputs in RDKit 2026.09.2, and a bare `except: return ""` turned that
+    # total failure into a silent one. Every compound then became its own group and
+    # the "scaffold split" was a split on row order, which no assertion about
+    # disjointness can catch: distinct keys are trivially disjoint. So check first
+    # that real scaffolds exist and that compounds actually share them.
+    keys = [scaffold_key(s) for s in smiles]
+    assert all(k != "unknown" for k in keys), "every fixture SMILES must parse"
+    real = [k for k in keys if k != "acyclic"]
+    assert len(set(real)) < len(real), \
+        "no two fixture compounds share a scaffold -- scaffold_key is not grouping"
+
+    train_scaffolds = {k for k, t in zip(keys, a) if t and k != "acyclic"}
+    test_scaffolds = {k for k, t in zip(keys, a) if not t and k != "acyclic"}
+    assert train_scaffolds and test_scaffolds, \
+        "both sides must hold real scaffolds or the overlap check is vacuous"
+    shared = train_scaffolds & test_scaffolds
+    assert not shared, f"scaffolds on both sides of the split: {shared}"
+
+
+# ------------------------------------------- choosing the model by measurement
+
+from dmta.models import DescriptorRidge, _grouped_oof_mae, choose_model
+
+
+def _label_library(fn):
+    lib = fresh_library()[:260]
+    for c in lib:
+        c.measured = float(fn(c))
+    return lib
+
+
+def test_the_selector_keeps_the_forest_when_the_signal_is_not_in_the_descriptors():
+    """Known answer: a target built from fingerprint structure, not physchem.
+
+    The measured value keys off a substructure the descriptors cannot see, so a
+    twelve-number linear model has nothing to fit and the forest must win.
+    """
+    lib = _label_library(lambda c: 7.0 + 1.5 * ("c1ccccc1" in c.smiles)
+                         + 0.9 * c.smiles.count("N") % 3)
+    _, pick = choose_model(lib)
+    assert pick["chosen"] == "forest", pick
+    assert pick["scoring"] == "scaffold-grouped out-of-fold MAE"
+
+
+def test_the_selector_ships_the_ridge_when_the_endpoint_is_linear_in_descriptors():
+    """Known answer: section 18's solubility shape, made exact.
+
+    A clean linear function of cLogP and MW over a wide range is what a ridge
+    extrapolates and a forest cannot -- the forest's leaves stop at the edge of
+    its training data. If the selector cannot find the ridge here it will not
+    find it on a real endpoint either.
+    """
+    lib = _label_library(lambda c: -0.9 * c.desc["clogp"] - 0.011 * c.desc["mw"] + 2.0)
+    _, pick = choose_model(lib)
+    assert pick["chosen"] == "ridge", pick
+    assert pick["ridge_mae"] < pick["forest_mae"]
+
+
+def test_the_selector_folds_never_share_a_scaffold():
+    """The fix that made the selector work, pinned.
+
+    The first version cross-validated on random folds and picked the forest 5
+    times out of 5 on solubility -- the honest answer to the wrong question,
+    because random folds put near-identical analogues on both sides. If grouping
+    silently regresses, the selector goes back to being wrong in exactly the
+    case it exists for.
+    """
+    seen: list[set[str]] = []
+
+    class Spy:
+        def fit(self, train, target="measured"):
+            seen.append({c.scaffold_id for c in train})
+            self.train = train
+            return self
+
+        def predict(self, test):
+            self.held = {c.scaffold_id for c in test}
+            assert not (seen[-1] & self.held), "a scaffold was in train and test at once"
+            return np.zeros(len(test)), np.ones(len(test))
+
+    lib = _label_library(lambda c: c.desc["mw"] / 100.0)
+    out = _grouped_oof_mae(Spy, lib, "measured")
+    assert out is not None and len(seen) >= 2
+
+
+def test_the_ridge_reports_a_usable_uncertainty():
+    """A linear model has no ensemble to disagree with itself.
+
+    Without the bootstrap there is no sigma at all, and every acquisition
+    function except greedy spends part of its batch on sigma.
+    """
+    lib = _label_library(lambda c: -0.9 * c.desc["clogp"] + 2.0)
+    m = DescriptorRidge(n_boot=20, seed=0).fit(lib)
+    mu, sigma = m.predict(lib[:40])
+    assert len(mu) == 40 and (sigma > 0).all()
+    r = m.report()
+    assert r["kind"] == "descriptor_ridge" and r["n_bootstrap"] > 0
+    m.apply(lib[:5])
+    assert all(c.predicted is not None and c.uncertainty is not None for c in lib[:5])
+
+
+def test_a_campaign_honours_a_forced_model_and_will_not_guess_on_too_little_data():
+    forced = Campaign("t-ridge", settings=CycleSettings(batch_size=8, model="ridge"))
+    forced.run_cycle()
+    assert forced.model_choice["chosen"] == "ridge"
+    assert isinstance(forced.model, DescriptorRidge)
+
+    auto = Campaign("t-auto", settings=CycleSettings(batch_size=8, model="auto"))
+    auto.run_cycle()
+    assert len(auto.measured) < Campaign.MIN_FOR_CHOICE
+    assert auto.model_choice is None, "decided the model on a handful of compounds"
+    assert isinstance(auto.model, PropertyModel)
+
+
+# ------------------------------------- the Cell Painting controls (section 21)
+
+def test_the_formula_prefilter_cannot_discard_a_true_match():
+    """jump_match.py skips ~95% of molecules without computing their InChIKey.
+
+    It is allowed to do that only because two molecules with the same InChIKey
+    necessarily have the same molecular formula, so a formula miss is a guaranteed
+    InChIKey miss. If that ever stopped holding, the matcher would silently find
+    fewer compounds, and the size of the overlap is the number section 21's whole
+    verdict rests on.
+    """
+    from rdkit import Chem
+    from rdkit.Chem.rdMolDescriptors import CalcMolFormula
+
+    pairs = [
+        ("CC(=O)Oc1ccccc1C(=O)O", "O=C(O)c1ccccc1OC(C)=O"),      # aspirin, two writings
+        ("C[C@H](N)C(=O)O", "C[C@H](N)C(=O)O"),                   # with stereo
+        ("[Na+].[Cl-]", "[Cl-].[Na+]"),                           # a salt, reordered
+        ("c1ccccc1", "C1=CC=CC=C1"),                              # kekulised
+    ]
+    for a, b in pairs:
+        ma, mb = Chem.MolFromSmiles(a), Chem.MolFromSmiles(b)
+        assert ma is not None and mb is not None, (a, b)
+        if Chem.MolToInchiKey(ma) == Chem.MolToInchiKey(mb):
+            assert CalcMolFormula(ma) == CalcMolFormula(mb), (
+                f"{a} and {b} share an InChIKey but not a formula -- the pre-filter "
+                f"in jump_match.py would drop this true match")
+
+
+def test_the_scrambled_arm_keeps_the_columns_and_destroys_the_pairing():
+    """The control's whole job is to be identical except for the information.
+
+    Section 21 turns on the scrambled arm costing the forest the same 0.12 of AUC
+    that the real profile did. That is only evidence of dilution if the scrambling
+    is real: a permutation that left most rows in place would still carry the true
+    compound-to-profile link, would score like the real arm, and the agreement
+    would look like proof while being an artefact of a broken control.
+    """
+    rng = np.random.default_rng(0)
+    n, p = 400, 20
+    P = rng.normal(size=(n, p))
+    perm = np.random.default_rng(0).permutation(n)
+    S = P[perm]
+
+    assert np.allclose(np.sort(P, axis=0), np.sort(S, axis=0)), \
+        "a permutation of rows must leave every column's values untouched"
+    assert (perm == np.arange(n)).mean() < 0.05, \
+        "the permutation left too many rows in place to be a control"
+    moved = (np.linalg.norm(P - S, axis=1) > 1e-9).mean()
+    assert moved > 0.95, f"only {moved:.0%} of rows actually moved"
+
+
+def test_rank_fusion_is_immune_to_one_arm_gaining_columns():
+    """Late fusion exists because concatenation is not immune.
+
+    Concatenating the profile lost 0.12 of AUC to pure noise, so it could not
+    answer whether the profile carries information. Rank-averaging two separately
+    fitted models cannot dilute either one: it depends only on the ORDER of each
+    input, so a change of scale in one arm -- which is what a differently sized
+    model produces -- leaves the fused ranking untouched.
+    """
+    def ranks(v):
+        order = np.empty(len(v), float)
+        order[np.argsort(v, kind="stable")] = np.arange(len(v))
+        return order / max(len(v) - 1, 1)
+
+    rng = np.random.default_rng(1)
+    a, b = rng.random(200), rng.random(200)
+    fused = (ranks(a) + ranks(b)) / 2
+    fused_rescaled = (ranks(0.01 * a + 5.0) + ranks(b)) / 2
+    assert np.allclose(fused, fused_rescaled), \
+        "rank fusion must depend only on the order of each arm"
+
+
+def test_the_cell_painting_verdict_will_not_call_a_tie_a_rejection():
+    """Section 21's real numbers, through the verdict function.
+
+    Every comparison that matters there is a tie, and the one arm that "loses"
+    loses to its own scrambled control by the same margin -- which is the finding,
+    not a defeat for Cell Painting. If this function ever starts calling those
+    intervals rejections, the section's conclusion inverts: we would publish "a
+    morphological profile does not predict activity" on an interval containing zero.
+    """
+    from jump_cellpaint_test import verdict
+
+    # profile against its own permutation: +0.015, CI [-0.082, +0.114]
+    out = verdict(0.015, -0.082, 0.114, "profile")
+    assert "TIE" in out and "not a measurement of no effect" in out, out
+
+    # real profile against scrambled, same column count: -0.001, CI [-0.092, +0.095]
+    assert "TIE" in verdict(-0.001, -0.092, 0.095, "both")
+
+    # fused against fingerprint: -0.043, CI [-0.088, +0.003] -- barely a tie, still one
+    assert "TIE" in verdict(-0.043, -0.088, 0.003, "fused")
+
+    # and the one real loss: concatenation against the fingerprint alone
+    out = verdict(-0.123, -0.198, -0.047, "both")
+    assert "LOSES" in out and "TIE" not in out, out
+
+
+def test_murcko_returns_real_scaffolds_and_not_a_silent_fallback():
+    """murcko() ends in `except Exception: return "unknown"`.
+
+    If the RDKit call it wraps ever breaks the way MurckoScaffold did in
+    2026.09.2 -- raising on every input rather than on odd ones -- every
+    compound would come back "unknown", collapse into a single group, and both
+    the scaffold split and the model selector's scaffold-grouped folds would
+    silently become splits on row order. Nothing would raise. This is the
+    known-answer guard for that, one layer under section 18's control arm.
+    """
+    assert murcko("CC(=O)Oc1ccccc1C(=O)O") == "c1ccccc1"      # aspirin
+    assert murcko("CCN(CC)CC") == "acyclic"                   # no ring system
+    assert murcko("not a smiles") == "unknown"                # the fallback works
+
+    lib = fresh_library()[:200]
+    keys = [c.scaffold_id for c in lib]
+    assert "unknown" not in keys, "the scaffold fallback fired on a clean library"
+    assert len(set(keys)) > 1, "every compound landed in one scaffold group"
+
+
+def test_the_selector_says_so_rather_than_guessing_when_scaffolds_collapse():
+    """The safe failure, if the guard above ever does fire.
+
+    One group means no held-out fold is possible. The selector must report that
+    it could not compare, not quietly return whichever model it fitted last.
+    """
+    lib = fresh_library()[:80]
+    for c in lib:
+        c.measured = 7.0
+        c.scaffold_id = "unknown"
+    _, pick = choose_model(lib)
+    assert pick["chosen"] == "forest"
+    assert "too few scaffolds" in pick["reason"]

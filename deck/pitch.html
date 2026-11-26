@@ -38,6 +38,7 @@
   td { padding:2.6mm 4mm 2.6mm 0; border-bottom:1px solid #edf0f3; vertical-align:top; }
   td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; padding-right:6mm; }
   table.dense td { padding-top:1.6mm; padding-bottom:1.6mm; }
+  table.tight td { padding-top:1.15mm; padding-bottom:1.15mm; font-size:10pt; }
   tr.hero td { font-weight:700; color:#0b5d3b; }
   tr.dead td { color:#9aa4b0; }
   .tag { display:inline-block; font-size:8pt; font-weight:700; padding:.8mm 2.2mm;
@@ -46,6 +47,8 @@
   .fail { background:#f1f3f5; color:#78838f; }
   .run  { background:#fff1d6; color:#8a5a00; }
   .tie  { background:#e4ecf5; color:#28506f; }
+  .eval { background:#ede4f5; color:#4a2a6f; }
+  .todo { background:#f1f3f5; color:#78838f; border:1px dashed #c7cfd6; }
 
   .cols { display:flex; gap:12mm; }
   .cols > div { flex:1; }
@@ -82,7 +85,7 @@
   <div class="rule"></div>
   <p class="sub">A closed-loop platform that tells a chemist which molecules to make next —
   and refuses to ship any capability that has not beaten a test whose answer we already knew.</p>
-  <div class="foot"><span>25 November 2026</span><span>Status: 2 kept · 3 rejected · 2 ties · 1 parked</span></div>
+  <div class="foot"><span>26 November 2026</span><span>Status: 3 kept · 3 rejected · 3 ties · 1 parked</span></div>
 </section>
 
 <!-- 2 PROBLEM -->
@@ -138,18 +141,18 @@
     <p class="quote">Any lab can claim a model works. We hide the answers, let the software
     guess, and compare. <strong>Nothing ships until it beats a known answer.</strong></p>
     <div class="big" style="margin-top:9mm">
-      <div><div class="n">7</div><div class="l">capabilities put through the examination</div></div>
-      <div><div class="n">2</div><div class="l">passed and kept</div></div>
+      <div><div class="n">8</div><div class="l">capabilities put through the examination</div></div>
+      <div><div class="n">3</div><div class="l">passed and kept</div></div>
       <div class="grey"><div class="n">3</div><div class="l">failed and were deleted</div></div>
       <div class="grey"><div class="n">5</div><div class="l">of our own published claims corrected</div></div>
     </div>
     <div class="note">Three rejections is the product working &mdash; each one a feature a
     competitor could have shipped on a plausible-looking number. The two that passed are the
-    loop itself and the handling of compounds too weak to measure. Two came out <em>ties</em>,
-    and both are corrections to us: one we had been calling a rejection, one we had never
-    tested on the task its authors validated. Seven capabilities, eight claims &mdash; two of
-    them turned out to be two claims wearing one verdict. One more is parked unfinished
-    rather than counted as either.</div>
+    loop itself, the handling of compounds too weak to measure, and now lipophilicity. Three
+    came out <em>ties</em>, each a correction to us: one we had been calling a rejection, one
+    we had never tested on the task its authors validated, and one where a tie on ranking hid
+    a loss on error. Eight capabilities, ten claims &mdash; some of them turned out to be two
+    claims wearing one verdict. One more is parked unfinished rather than counted as either.</div>
   </div>
   <div class="foot"><span>Hara Vara</span><span>4</span></div>
 </section>
@@ -246,7 +249,7 @@
 <!-- 8 WE AUDITED OURSELVES -->
 <section class="slide">
   <p class="kicker">We examined ourselves too</p>
-  <h2>Three of our own claims did not survive</h2>
+  <h2>Four of our own findings did not survive <span class="q">— one was shipping</span></h2>
   <div class="body">
     <div class="cols">
       <div class="card"><h3>2.75× → 0.71×</h3>
@@ -261,8 +264,13 @@
         <p>"3.77 versus 3.74" read as a difference. Converted back to molecules it was
         <strong>10.0 against 9.9, out of 10</strong> — the metric had saturated. The suite now
         refuses a saturated column.</p></div>
+      <div class="card"><h3>A default that was shipping</h3>
+        <p>Our scoring profile marked down <strong>138 approved antibacterials</strong> 19.6
+        points more often than other approved drugs, CI [+10.8, +28.7]. Daptomycin scored
+        <strong>exactly zero</strong>. Those drugs exist, so the error is ours — and it had
+        been in every campaign since the profile was written.</p></div>
     </div>
-    <div class="note" style="margin-top:8mm">What caught all three was the same discipline:
+    <div class="note" style="margin-top:6mm">What caught all four was the same discipline:
     <strong>turn every ratio back into a count of actual molecules</strong>, and attach a
     p-value. A "win" of 7 actives against 6 is p = 0.65. It is not a win.</div>
   </div>
@@ -328,7 +336,47 @@
   <div class="foot"><span>Hara Vara</span><span>10</span></div>
 </section>
 
-<!-- 11 ASK -->
+<!-- 11 ROADMAP -->
+<section class="slide">
+  <p class="kicker">The roadmap &middot; status as of 26 November</p>
+  <h2>What is built, what is being measured, and what is only a placeholder</h2>
+  <div class="body">
+    <table class="dense tight">
+      <tr><th>Capability</th><th>Why it is on the list</th><th>Status</th></tr>
+      <tr class="hero"><td><strong>ADME — logD</strong></td>
+          <td>First endpoint beyond potency, which is not what programmes die on</td>
+          <td><span class="tag pass">shipped</span></td></tr>
+      <tr class="hero"><td><strong>Class-specific property profiles</strong></td>
+          <td>Our one profile assumed every drug is an oral pill</td>
+          <td><span class="tag pass">shipped</span></td></tr>
+      <tr><td>ADME — solubility</td><td>Ties a 12-descriptor ridge and loses on error</td>
+          <td><span class="tag tie">measured — ridge ships instead</span></td></tr>
+      <tr><td><strong>Cell-painting phenotype</strong></td>
+          <td>A cell's response is not structural resemblance — the only untried fix for slide 6</td>
+          <td><span class="tag eval">under evaluation</span></td></tr>
+      <tr><td>Molecules never leave the customer's machine</td>
+          <td>Already true — only two modules open a connection, neither in the loop</td>
+          <td><span class="tag eval">under evaluation</span></td></tr>
+      <tr><td>Cost per answer · an auditable trail</td>
+          <td>We match a graph neural net at 96× less compute; the trail gates any pilot</td>
+          <td><span class="tag todo">not started</span></td></tr>
+      <tr><td>Manufacturability · trade-off view · scope limits</td>
+          <td>Each cheap; each may lose to a simpler baseline, which is the point</td>
+          <td><span class="tag todo">not started</span></td></tr>
+      <tr class="dead"><td>Peptides, antibodies · lab-software connectors</td>
+          <td>A second platform, and someone else's distribution</td>
+          <td><span class="tag fail">decided against</span></td></tr>
+    </table>
+    <div class="note" style="margin-top:4mm"><strong>Two are already true and we had never
+    said so</strong> — the cost advantage and the data isolation. <strong>Nothing marked "under
+    evaluation" or "not started" is claimed as working</strong>, and each carries the
+    known-answer test it must pass first. The shipped rows passed theirs; solubility did not,
+    so a ridge ships instead.</div>
+  </div>
+  <div class="foot"><span>Hara Vara</span><span>11</span></div>
+</section>
+
+<!-- 12 ASK -->
 <section class="slide">
   <p class="kicker">The ask</p>
   <h2>What we want from this review</h2>
@@ -348,10 +396,10 @@
     demoted two from "rejected" to a tie, and corrected five of our own claims.
     <strong>That is the evidence that the numbers we do report mean something.</strong></p>
   </div>
-  <div class="foot"><span>Hara Vara</span><span>11</span></div>
+  <div class="foot"><span>Hara Vara</span><span>12</span></div>
 </section>
 
-<!-- 12 APPENDIX -->
+<!-- 13 APPENDIX -->
 <section class="slide">
   <p class="kicker">Appendix</p>
   <h2>Where the detail lives</h2>
@@ -372,7 +420,7 @@
     branch <code>hara-vara-platform</code>. Every figure in this deck is reproducible from a
     command line printed in <code>RESULTS.md</code>.</div>
   </div>
-  <div class="foot"><span>Hara Vara · 25 November 2026</span><span>12</span></div>
+  <div class="foot"><span>Hara Vara · 26 November 2026</span><span>13</span></div>
 </section>
 
 </body></html>
